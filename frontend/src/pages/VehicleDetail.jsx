@@ -556,7 +556,9 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
                 <p className={`text-sm text-slate-400 text-center ${single ? 'py-10' : 'py-4'}`}>
                   {m.key === 'economy'
                     ? 'No economy data in this range yet — it needs consecutive fill-to-full records.'
-                    : 'No data in this range yet.'}
+                    : m.key === 'miles'
+                      ? 'Distance is measured month over month — it needs odometer readings (from any record) in two different months.'
+                      : 'No data in this range yet.'}
                 </p>
               ) : showTable ? (
                 <ChartTable data={s} xHeader={s[0].x.length === 7 ? 'Month' : 'Date'} yHeader={fmt.header}
@@ -644,7 +646,16 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
   useEffect(() => { getDashboard(vehicleId).then(setData) }, [vehicleId])
   useEffect(() => { getReminders(vehicleId).then(setReminders) }, [vehicleId])
   useEffect(() => { getFuel(vehicleId).then(setFuel) }, [vehicleId])
-  useEffect(() => { getRecords(vehicleId, 'odometer').then(setOdo) }, [vehicleId])
+  // Every record type can carry an odometer reading — the distance-driven trend
+  // uses them all, not just dedicated odometer entries.
+  useEffect(() => {
+    Promise.all(['odometer', 'service', 'repair', 'upgrade'].map((t) => getRecords(vehicleId, t)))
+      .then((groups) => setOdo(
+        groups.flat()
+          .filter((r) => r.odometer != null && r.date)
+          .map((r) => ({ date: r.date, odometer: r.odometer }))
+      ))
+  }, [vehicleId])
 
   const fuelStats = useMemo(() => {
     if (!fuel || fuel.length === 0) return null
