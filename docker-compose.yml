@@ -1,0 +1,18 @@
+services:
+  milemarker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    ports:
+      - "3002:3002"
+    volumes:
+      - milemarker-data:/data
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATA_DIR: /data
+    restart: unless-stopped
+
+volumes:
+  milemarker-data:

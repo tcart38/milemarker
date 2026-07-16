@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-slate-50 text-slate-900;
+  }
+  html.dark {
+    @apply bg-slate-900 text-slate-100;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.slate.300') transparent;
+  }
+  html.dark * {
+    scrollbar-color: theme('colors.slate.600') transparent;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
+  html.dark ::-webkit-scrollbar-thumb { @apply bg-slate-600; }
+
+  /* Remove the 300ms tap delay / double-tap zoom on interactive elements. */
+  button, a, input, select, textarea, label {
+    touch-action: manipulation;
+  }
+
+  @keyframes sheet-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+           transition duration-150 cursor-pointer select-none
+           active:scale-[0.97] motion-reduce:transform-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-hover;
+  }
+  .btn-ghost {
+    @apply btn text-slate-500 hover:bg-slate-200 hover:text-slate-900
+           dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-500;
+  }
+  /* Ghost button for always-dark surfaces (lightbox overlay). */
+  .btn-ghost-dark {
+    @apply btn text-white/70 hover:bg-white/10 hover:text-white;
+  }
+  .card {
+    @apply bg-white border-slate-200 dark:bg-slate-800 dark:border-white/[0.06] rounded-xl border;
+  }
+  /* 16px on mobile so iOS Safari doesn't auto-zoom the page on focus; taller for touch. */
+  .input {
+    @apply w-full bg-white border-slate-300 text-slate-900 placeholder-slate-400
+           dark:bg-slate-700 dark:border-white/[0.08] dark:text-slate-100 dark:placeholder-slate-400
+           border rounded-lg px-3 py-2.5 text-base sm:py-2 sm:text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand/50
+           transition-colors duration-150;
+  }
+  .label {
+    @apply block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1;
+  }
+  /* Small stat tile used on dashboards */
+  .stat {
+    @apply card p-4;
+  }
+  .stat-label {
+    @apply text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400;
+  }
+  .stat-value {
+    @apply text-xl font-semibold text-slate-900 dark:text-slate-100 mt-1 tabular-nums;
+  }
+  /* Reminder urgency badges */
+  .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium; }
+  .badge-overdue  { @apply bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400; }
+  .badge-due-soon { @apply bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400; }
+  .badge-upcoming { @apply bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400; }
+  .badge-not-due  { @apply bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300; }
+
+  /* Record type badges (merged Service tab) */
+  .badge-service { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400; }
+  .badge-repair  { @apply bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400; }
+  .badge-upgrade { @apply bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400; }
+
+  /* Filter chip (pill toggle) */
+  .chip {
+    @apply inline-flex items-center justify-center px-3 h-8 rounded-full text-xs font-medium
+           border cursor-pointer select-none whitespace-nowrap transition-colors duration-150;
+  }
+  .chip-on  { @apply bg-brand/10 border-brand/40 text-brand; }
+  .chip-off { @apply bg-transparent border-slate-300 text-slate-500 hover:text-slate-900
+                     dark:border-white/[0.1] dark:text-slate-400 dark:hover:text-slate-100; }
+
+  /* Mobile floating action button — thumb-reachable primary action. */
+  .fab {
+    @apply sm:hidden fixed z-30 inline-flex items-center gap-2 h-14 px-5 rounded-full
+           bg-brand text-white text-sm font-semibold shadow-lg shadow-brand/40
+           active:scale-95 transition motion-reduce:transform-none;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  /* Bottom sheet entrance */
+  .animate-sheet {
+    animation: sheet-up 200ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-sheet { animation: none; }
+  }
+}

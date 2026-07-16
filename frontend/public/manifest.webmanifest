@@ -1,0 +1,24 @@
+{
+  "name": "MileMarker",
+  "short_name": "MileMarker",
+  "description": "Track fuel, service, repairs, and maintenance reminders for all your vehicles.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#6366f1",
+  "background_color": "#0f172a",
+  "icons": [
+    { "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log fuel",
+      "short_name": "Fuel",
+      "description": "Add a fuel fill-up",
+      "url": "/quick/fuel",
+      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
