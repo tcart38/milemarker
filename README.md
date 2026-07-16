@@ -2,6 +2,8 @@
 
 Self-hosted vehicle maintenance and fuel tracking. One lightweight container, one SQLite file, no accounts, no cloud — built to make the most common action (logging a fill-up at the pump) as fast as possible on your phone.
 
+Inspired by the excellent [LubeLogger](https://lubelogger.com) — MileMarker is a from-scratch, deliberately simpler take on the same idea, with a built-in importer if you're coming from there ([including your attached images](#importing-your-data), which the CSV export can't carry).
+
 ## Features
 
 - **Fuel & charging log** — fill-ups with cost, quantity, partial-fill and missed-fill-up handling, automatic fuel-economy and price-per-gallon calculation. Vehicles marked as **electric** track charges in kWh with mi/kWh efficiency instead.
