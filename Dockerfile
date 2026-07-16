@@ -12,6 +12,9 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
+# su-exec: drop from root to PUID/PGID after fixing /data ownership at startup
+RUN apk add --no-cache su-exec
+
 # Install backend deps (better-sqlite3 needs build tools to compile its native binding)
 COPY backend/package.json backend/package-lock.json* ./
 RUN apk add --no-cache --virtual .build python3 make g++ && \
@@ -24,15 +27,16 @@ COPY backend/src ./src
 # Built frontend served as static assets by the backend
 COPY --from=frontend-builder /app/frontend/dist ./public
 
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 ENV NODE_ENV=production \
     PORT=3002 \
     DATA_DIR=/data
 
-# Run unprivileged. Volumes created fresh inherit this ownership; a volume that
-# predates this change may need a one-time: docker run --rm -v <vol>:/data alpine chown -R 1000:1000 /data
-RUN mkdir -p /data && chown -R node:node /data /app
-USER node
-
 EXPOSE 3002
 
-CMD ["sh", "-c", "mkdir -p $DATA_DIR && node src/index.js"]
+# Starts as root, chowns $DATA_DIR to PUID:PGID (default 1000:1000), then runs
+# the app unprivileged via su-exec. Works with bind mounts (Unraid appdata)
+# and named volumes alike.
+ENTRYPOINT ["./docker-entrypoint.sh"]

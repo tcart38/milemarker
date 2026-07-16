@@ -54,7 +54,7 @@ Single container, no compose needed:
 
 **Updating:** Docker tab → click the MileMarker icon → **Force Update**. Your data is safe in the `/data` mount.
 
-> **Note on permissions:** the container runs as an unprivileged user (uid 1000). If your appdata folder was created by a pre-1.0 root container, fix ownership once: `chown -R 1000:1000 /mnt/user/appdata/milemarker`.
+> **Permissions:** the container starts as root, sets ownership of `/data` to `PUID:PGID` (default `1000:1000`), then drops privileges — so bind-mounted appdata folders work out of the box. To match Unraid's usual conventions, set env vars `PUID=99` and `PGID=100`.
 
 ## Configuration
 
@@ -63,6 +63,7 @@ Single container, no compose needed:
 | `PORT` | `3002` | Port the server listens on |
 | `DATA_DIR` | `/data` | Writable folder for the SQLite database and uploads — persist this |
 | `ALLOWED_HOSTS` | *(empty)* | Extra hostnames allowed in the `Host` header, comma-separated (see Security) |
+| `PUID` / `PGID` | `1000` / `1000` | User/group the app runs as; `/data` is chowned to this at startup |
 | `NODE_ENV` | — | `production` in Docker; enables serving the built frontend |
 
 Units, currency, service types, and theme are configured in the app under **Settings**.
