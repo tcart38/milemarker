@@ -17,6 +17,20 @@ export function currentOdometer(db, vehicleId) {
   return row?.odo ?? null
 }
 
+// Lowest odometer seen across every record type — where tracking began.
+export function firstOdometer(db, vehicleId) {
+  const row = db.prepare(`
+    SELECT MIN(odo) AS odo FROM (
+      SELECT MIN(odometer) AS odo FROM fuel_records WHERE vehicle_id = @id
+      UNION ALL SELECT MIN(odometer) FROM service_records WHERE vehicle_id = @id
+      UNION ALL SELECT MIN(odometer) FROM repair_records WHERE vehicle_id = @id
+      UNION ALL SELECT MIN(odometer) FROM upgrade_records WHERE vehicle_id = @id
+      UNION ALL SELECT MIN(odometer) FROM odometer_records WHERE vehicle_id = @id
+    )
+  `).get({ id: vehicleId })
+  return row?.odo ?? null
+}
+
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic)$/i
 
 function withStats(db, v) {

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getDb } from '../db/index.js'
-import { currentOdometer } from './vehicles.js'
+import { currentOdometer, firstOdometer } from './vehicles.js'
 import { decoratedReminders } from './reminders.js'
 import { fuelSegments } from './fuel.js'
 
@@ -38,7 +38,11 @@ router.get('/', (req, res) => {
   const segQty = segments.reduce((s, x) => s + x.qty, 0)
   const avgEconomy = segDist > 0 && segQty > 0 ? +(segDist / segQty).toFixed(2) : null
 
-  const costPerDistance = odo != null && odo > 0 ? +(totalCost / odo).toFixed(3) : null
+  // Cost per distance over the tracked span only — dividing by the lifetime
+  // odometer would count miles driven before the vehicle was ever logged here.
+  const firstOdo = firstOdometer(db, id)
+  const trackedDist = odo != null && firstOdo != null ? odo - firstOdo : null
+  const costPerDistance = trackedDist > 0 ? +(totalCost / trackedDist).toFixed(3) : null
 
   // Monthly spend (last 12 months) across all cost-bearing records.
   const monthly = db.prepare(`
