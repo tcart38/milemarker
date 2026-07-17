@@ -1211,7 +1211,12 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
       const saved = record ? await updateRecord(vehicleId, type, record.id, body) : await createRecord(vehicleId, type, body)
       await uploadPending(vehicleId, type, record ? record.id : saved.id, pending)
       if (type === 'service') {
+        // Save only names the user typed in this session — items already on the
+        // record (e.g. stray import spellings) stay unlisted so the Settings
+        // review section keeps offering to clean them up.
+        const before = new Set((record?.items || (record?.description ? [record.description] : [])).map((s) => s.toLowerCase()))
         for (const item of f.items) {
+          if (before.has(item.toLowerCase())) continue
           if (!serviceOptions.some((o) => o.toLowerCase() === item.toLowerCase())) await addCustomService(item)
         }
       }

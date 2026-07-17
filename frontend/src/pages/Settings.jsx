@@ -31,7 +31,6 @@ function ServiceTypes() {
 
   const lc = (s) => s.toLowerCase()
   const listed = new Set([...PRESETS.service, ...customServices].map(lc))
-  const fromRecords = usage.filter((u) => !listed.has(lc(u.name)))
   const countFor = (name) => usage.find((u) => lc(u.name) === lc(name))?.count || 0
 
   const add = async (name) => {
@@ -139,26 +138,36 @@ function ServiceTypes() {
         </div>
       )}
 
-      {fromRecords.length > 0 && (
+      {usage.length > 0 && (
         <div>
-          <p className="label">In your records but not in your list</p>
+          <p className="label">Found in your records</p>
           <div className="flex flex-wrap gap-1.5">
-            {fromRecords.map((u) => (
-              <span key={u.name} className="chip chip-off !cursor-default gap-1 pr-1.5">
-                {u.name} <span className="text-slate-400 tabular-nums">×{u.count}</span>
-                {editButton(u.name)}
-                <button
-                  onClick={() => add(u.name)}
-                  className="p-0.5 rounded-full hover:bg-brand/20"
-                  title={`Add ${u.name} to your list`} aria-label={`Add ${u.name} to your list`}
-                >
-                  <Plus size={12} />
-                </button>
-              </span>
-            ))}
+            {[...usage]
+              .sort((a, b) => (listed.has(lc(a.name)) ? 1 : 0) - (listed.has(lc(b.name)) ? 1 : 0) || b.count - a.count || a.name.localeCompare(b.name))
+              .map((u) => {
+                const isListed = listed.has(lc(u.name))
+                return (
+                  <span key={u.name} className={`chip ${isListed ? 'chip-off' : 'chip-on'} !cursor-default gap-1 pr-1.5`}>
+                    {isListed && <Check size={11} className="text-emerald-500" />}
+                    {u.name} <span className="text-slate-400 tabular-nums">×{u.count}</span>
+                    {editButton(u.name)}
+                    {!isListed && (
+                      <button
+                        onClick={() => add(u.name)}
+                        className="p-0.5 rounded-full hover:bg-brand/20"
+                        title={`Add ${u.name} to your list`} aria-label={`Add ${u.name} to your list`}
+                      >
+                        <Plus size={12} />
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
           </div>
           <p className="text-[11px] text-slate-400 mt-2">
-            Usually from imports. Add the ones you want offered in forms, or rename a stray spelling to merge it into a type you already use.
+            Every service type used by your records. <Check size={10} className="inline text-emerald-500" /> = already
+            a type in your list. The highlighted rest — usually import spellings — can be added to your list as-is
+            (＋) or renamed (✏️) into a type you already use, which re-tags those records.
           </p>
         </div>
       )}
