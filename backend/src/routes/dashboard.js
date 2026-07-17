@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getDb } from '../db/index.js'
 import { currentOdometer } from './vehicles.js'
 import { decoratedReminders } from './reminders.js'
+import { fuelSegments } from './fuel.js'
 
 const router = Router({ mergeParams: true })
 
@@ -27,16 +28,15 @@ router.get('/', (req, res) => {
 
   const odo = currentOdometer(db, id)
 
-  // Overall fuel economy across the tracked span (fill-to-full records only).
-  const fulls = db.prepare(
-    'SELECT odometer, quantity FROM fuel_records WHERE vehicle_id = ? AND is_fill_to_full = 1 ORDER BY odometer'
+  // Overall fuel economy: sum the valid fill-to-full segments so stretches
+  // with a missed fuel-up don't skew the average.
+  const fuelRows = db.prepare(
+    'SELECT id, odometer, quantity, is_fill_to_full, missed_fuelup FROM fuel_records WHERE vehicle_id = ?'
   ).all(id)
-  let avgEconomy = null
-  if (fulls.length >= 2) {
-    const dist = fulls[fulls.length - 1].odometer - fulls[0].odometer
-    const qty = fulls.slice(1).reduce((s, r) => s + r.quantity, 0) // exclude the first tank
-    if (dist > 0 && qty > 0) avgEconomy = +(dist / qty).toFixed(2)
-  }
+  const segments = fuelSegments(fuelRows)
+  const segDist = segments.reduce((s, x) => s + x.dist, 0)
+  const segQty = segments.reduce((s, x) => s + x.qty, 0)
+  const avgEconomy = segDist > 0 && segQty > 0 ? +(segDist / segQty).toFixed(2) : null
 
   const costPerDistance = odo != null && odo > 0 ? +(totalCost / odo).toFixed(3) : null
 

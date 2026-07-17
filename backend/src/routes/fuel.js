@@ -4,29 +4,37 @@ import { deleteAttachmentsFor } from './attachments.js'
 
 const router = Router({ mergeParams: true })
 
-// Compute per-record fuel economy (distance / quantity) for the list.
-// Distance for a fill-to-full record is measured from the previous fill-to-full
-// odometer; a "missed fuel-up" in between makes the following record's economy
-// unreliable, so we skip economy for the record right after a missed one.
-function attachEconomy(rows) {
+// Walk fuel records in odometer order and return the valid fill-to-full
+// segments: distance and quantity since the previous fill-to-full, keyed by the
+// record that closes the segment. A "missed previous fill-up" flag anywhere in
+// a segment (including on the closing record) means unlogged fuel, so that
+// segment's distance/quantity ratio is meaningless and it is dropped.
+export function fuelSegments(rows) {
   const asc = [...rows].sort((a, b) => a.odometer - b.odometer || a.id - b.id)
+  const segments = []
   let lastFullOdo = null
   let qtySinceFull = 0
   let sawMissed = false
-  const mpgById = {}
   for (const r of asc) {
     qtySinceFull += r.quantity
+    if (r.missed_fuelup) sawMissed = true
     if (r.is_fill_to_full) {
       if (lastFullOdo !== null && !sawMissed && qtySinceFull > 0) {
         const dist = r.odometer - lastFullOdo
-        if (dist > 0) mpgById[r.id] = +(dist / qtySinceFull).toFixed(2)
+        if (dist > 0) segments.push({ id: r.id, dist, qty: qtySinceFull })
       }
       lastFullOdo = r.odometer
       qtySinceFull = 0
       sawMissed = false
     }
-    if (r.missed_fuelup) sawMissed = true
   }
+  return segments
+}
+
+// Compute per-record fuel economy (distance / quantity) for the list.
+function attachEconomy(rows) {
+  const mpgById = {}
+  for (const s of fuelSegments(rows)) mpgById[s.id] = +(s.dist / s.qty).toFixed(2)
   return rows.map((r) => ({ ...r, economy: mpgById[r.id] ?? null }))
 }
 
