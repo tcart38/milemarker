@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getDb } from '../db/index.js'
 import { currentOdometer } from './vehicles.js'
 import { recordItems } from './records.js'
+import { resolveServiceTypes } from './service-types.js'
 
 const router = Router({ mergeParams: true })
 
@@ -12,27 +13,36 @@ function addMonths(dateStr, months) {
   return d.toISOString().slice(0, 10)
 }
 
-// Latest service/repair/upgrade record that includes the reminder's item.
-// Records can now hold multiple items, so we match on membership, not equality.
-function latestMatchingRecord(db, vehicleId, description) {
-  const want = description?.trim().toLowerCase()
-  if (!want) return null
-  const rows = db.prepare(`
-    SELECT date, odometer, items, description FROM (
-      SELECT date, odometer, items, description FROM service_records WHERE vehicle_id = @v
-      UNION ALL SELECT date, odometer, items, description FROM repair_records  WHERE vehicle_id = @v
-      UNION ALL SELECT date, odometer, items, description FROM upgrade_records WHERE vehicle_id = @v
-    ) WHERE date IS NOT NULL
-  `).all({ v: vehicleId })
-  const matches = rows.filter((r) => recordItems(r).some((i) => i.trim().toLowerCase() === want))
+// Latest record that includes the reminder's item. Service records match by
+// type id through the junction (rename-proof); repair/upgrade records still
+// hold free-text items, so those match on name membership.
+function latestMatchingRecord(db, vehicleId, reminder) {
+  const want = reminder.description?.trim().toLowerCase()
+  const matches = reminder.type_id != null
+    ? db.prepare(`
+        SELECT s.date, s.odometer FROM service_records s
+        JOIN service_record_items i ON i.record_id = s.id
+        WHERE s.vehicle_id = ? AND i.type_id = ? AND s.date IS NOT NULL
+      `).all(vehicleId, reminder.type_id)
+    : []
+  if (want) {
+    const rows = db.prepare(`
+      SELECT date, odometer, items, description FROM (
+        SELECT date, odometer, items, description FROM repair_records  WHERE vehicle_id = @v
+        UNION ALL SELECT date, odometer, items, description FROM upgrade_records WHERE vehicle_id = @v
+      ) WHERE date IS NOT NULL
+    `).all({ v: vehicleId })
+    matches.push(...rows.filter((r) => recordItems(r).some((i) => i.trim().toLowerCase() === want)))
+  }
+  if (matches.length === 0) return null
   matches.sort((a, b) => b.date.localeCompare(a.date) || (b.odometer ?? 0) - (a.odometer ?? 0))
-  return matches[0] || null
+  return matches[0]
 }
 
 // The "last done" event: the more recent (by date) of the manual baseline and
 // the latest matching record. Returns { date, odometer } or null.
 function lastDone(db, vehicleId, r) {
-  const rec = latestMatchingRecord(db, vehicleId, r.description)
+  const rec = latestMatchingRecord(db, vehicleId, r)
   const manual = (r.base_date || r.base_odometer != null)
     ? { date: r.base_date || null, odometer: r.base_odometer ?? null }
     : null
@@ -128,12 +138,15 @@ router.post('/', (req, res) => {
   } else if (!due_date && due_odometer == null) {
     return res.status(400).json({ error: 'Set a due date and/or odometer' })
   }
+  // The reminder's subject becomes (or matches) a first-class service type, so
+  // renames/merges of the type keep this reminder tracking correctly.
+  const { ids, names } = resolveServiceTypes(db, [description])
   const { lastInsertRowid } = db.prepare(`
-    INSERT INTO reminders (vehicle_id, description, notes, is_recurring,
+    INSERT INTO reminders (vehicle_id, description, type_id, notes, is_recurring,
                            interval_miles, interval_months, base_date, base_odometer,
                            due_date, due_odometer)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.vehicleId, description.trim(), notes || null, is_recurring ? 1 : 0,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.vehicleId, names[0], ids[0], notes || null, is_recurring ? 1 : 0,
          is_recurring ? interval_miles ?? null : null,
          is_recurring ? interval_months ?? null : null,
          is_recurring ? base_date || null : null,
@@ -149,7 +162,12 @@ router.patch('/:id', (req, res) => {
   const db = getDb()
   const row = db.prepare('SELECT * FROM reminders WHERE id = ? AND vehicle_id = ?').get(req.params.id, req.params.vehicleId)
   if (!row) return res.status(404).json({ error: 'Not found' })
-  const fields = ['description', 'notes', 'is_recurring', 'interval_miles', 'interval_months',
+  if (req.body.description !== undefined) {
+    if (!String(req.body.description || '').trim()) return res.status(400).json({ error: 'description is required' })
+    const { ids, names } = resolveServiceTypes(db, [req.body.description])
+    db.prepare('UPDATE reminders SET description = ?, type_id = ? WHERE id = ?').run(names[0], ids[0], row.id)
+  }
+  const fields = ['notes', 'is_recurring', 'interval_miles', 'interval_months',
                   'base_date', 'base_odometer', 'due_date', 'due_odometer']
   for (const f of fields) {
     if (req.body[f] !== undefined) {

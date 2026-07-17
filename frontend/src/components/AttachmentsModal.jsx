@@ -3,6 +3,7 @@ import { Upload, FileText, Trash2 } from 'lucide-react'
 import { getAttachments, uploadAttachment, deleteAttachment, attachmentUrl } from '../api/client.js'
 import Modal from './Modal.jsx'
 import Lightbox from './Lightbox.jsx'
+import ConfirmDialog from './ConfirmDialog.jsx'
 
 const isImage = (name) => /\.(jpe?g|png|gif|webp|heic)$/i.test(name)
 
@@ -11,6 +12,7 @@ export default function AttachmentsModal({ vehicleId, recordType, recordId, titl
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [view, setView] = useState(null)
+  const [toDelete, setToDelete] = useState(null)
   const inputRef = useRef(null)
 
   const load = useCallback(() => { getAttachments(vehicleId, recordType, recordId).then(setItems) }, [vehicleId, recordType, recordId])
@@ -67,12 +69,19 @@ export default function AttachmentsModal({ vehicleId, recordType, recordId, titl
                 )}
                 <span className="text-sm truncate group-hover:text-brand">{a.filename}</span>
               </button>
-              <button onClick={() => del(a.id)} className="text-slate-300 hover:text-red-500 p-1 flex-shrink-0"><Trash2 size={14} /></button>
+              <button onClick={() => setToDelete(a)} className="text-slate-300 hover:text-red-500 p-1 flex-shrink-0"><Trash2 size={14} /></button>
             </div>
           ))}
         </div>
       )}
       {view && <Lightbox attachment={view} onClose={() => setView(null)} />}
+      {toDelete && (
+        <ConfirmDialog
+          message={`Delete “${toDelete.filename}”?`}
+          onConfirm={async () => { await del(toDelete.id); setToDelete(null) }}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
     </Modal>
   )
 }

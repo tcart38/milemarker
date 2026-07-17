@@ -1,16 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
-import { getSettings, updateSettings } from '../api/client.js'
-import { PRESETS } from '../presets.js'
+import { getSettings, getServiceTypes } from '../api/client.js'
 
 const SettingsContext = createContext(null)
 
 const DEFAULTS = {
   distance_unit: 'mi', volume_unit: 'gal', currency_symbol: '$',
-  date_format: 'MM/DD/YYYY', custom_services: '[]', version: '',
+  date_format: 'MM/DD/YYYY', version: '',
 }
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(DEFAULTS)
+  const [serviceTypes, setServiceTypes] = useState([])
 
   const refresh = useCallback(async () => {
     try {
@@ -19,7 +19,12 @@ export function SettingsProvider({ children }) {
     } catch { /* keep defaults */ }
   }, [])
 
-  useEffect(() => { refresh() }, [refresh])
+  // Service types live in the database; forms and Settings share this list.
+  const refreshServiceTypes = useCallback(async () => {
+    try { setServiceTypes(await getServiceTypes()) } catch { /* offline — keep last */ }
+  }, [])
+
+  useEffect(() => { refresh(); refreshServiceTypes() }, [refresh, refreshServiceTypes])
 
   const money = useCallback((n) => {
     if (n == null) return '—'
@@ -37,48 +42,13 @@ export function SettingsProvider({ children }) {
     return { distance: d, volume: v, economy: d === 'mi' && v === 'gal' ? 'mpg' : `${d}/${v}` }
   }, [settings.distance_unit, settings.volume_unit])
 
-  // User-defined service types, stored as a JSON array in settings.
-  const customServices = useMemo(() => {
-    try {
-      const list = JSON.parse(settings.custom_services || '[]')
-      return Array.isArray(list) ? list : []
-    } catch { return [] }
-  }, [settings.custom_services])
-
-  // Built-in presets plus the user's own — the option list for service items and reminders.
-  const serviceOptions = useMemo(() => [...PRESETS.service, ...customServices], [customServices])
-
-  const saveCustomServices = useCallback(async (list) => {
-    const updated = await updateSettings({ custom_services: JSON.stringify(list) })
-    setSettings((s) => ({ ...s, ...updated }))
-  }, [])
-
-  const addCustomService = useCallback(async (name) => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    const exists = [...PRESETS.service, ...customServices].some((s) => s.toLowerCase() === trimmed.toLowerCase())
-    if (exists) return
-    await saveCustomServices([...customServices, trimmed])
-  }, [customServices, saveCustomServices])
-
-  const removeCustomService = useCallback(async (name) => {
-    await saveCustomServices(customServices.filter((s) => s !== name))
-  }, [customServices, saveCustomServices])
-
-  // After renaming a type everywhere: if the old name was in the custom list,
-  // swap it for the new one — unless the target is a preset or already listed.
-  const renameCustomService = useCallback(async (from, to) => {
-    const rest = customServices.filter((s) => s.toLowerCase() !== from.toLowerCase())
-    if (rest.length === customServices.length) return // wasn't a custom type
-    const isPreset = PRESETS.service.some((s) => s.toLowerCase() === to.toLowerCase())
-    const exists = rest.some((s) => s.toLowerCase() === to.toLowerCase())
-    await saveCustomServices(isPreset || exists ? rest : [...rest, to])
-  }, [customServices, saveCustomServices])
+  // Names offered in the service-item and reminder comboboxes.
+  const serviceOptions = useMemo(() => serviceTypes.map((t) => t.name), [serviceTypes])
 
   return (
     <SettingsContext.Provider value={{
       settings, setSettings, refresh, money, distance, units,
-      customServices, serviceOptions, addCustomService, removeCustomService, renameCustomService,
+      serviceTypes, serviceOptions, refreshServiceTypes,
     }}>
       {children}
     </SettingsContext.Provider>

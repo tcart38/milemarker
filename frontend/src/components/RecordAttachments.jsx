@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Paperclip, FileText, Trash2 } from 'lucide-react'
 import { getAttachments, deleteAttachment, attachmentUrl } from '../api/client.js'
 import Lightbox from './Lightbox.jsx'
+import ConfirmDialog from './ConfirmDialog.jsx'
 
 const isImage = (name) => /\.(jpe?g|png|gif|webp|heic)$/i.test(name || '')
 
@@ -11,6 +12,7 @@ const isImage = (name) => /\.(jpe?g|png|gif|webp|heic)$/i.test(name || '')
 export default function RecordAttachments({ vehicleId, recordType, recordId, pending, setPending }) {
   const [existing, setExisting] = useState([])
   const [view, setView] = useState(null) // { attachment, src? } for the lightbox
+  const [toDelete, setToDelete] = useState(null)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
 
@@ -50,7 +52,7 @@ export default function RecordAttachments({ vehicleId, recordType, recordId, pen
           <div key={`e${a.id}`} className="flex items-center gap-2">
             <Thumb name={a.filename} url={attachmentUrl(a.id)} onClick={() => setView({ attachment: a })} />
             <span className="text-sm truncate flex-1">{a.filename}</span>
-            <button type="button" onClick={() => removeExisting(a.id)} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={13} /></button>
+            <button type="button" onClick={() => setToDelete(a)} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={13} /></button>
           </div>
         ))}
         {pending.map((f, i) => (
@@ -78,6 +80,13 @@ export default function RecordAttachments({ vehicleId, recordType, recordId, pen
         onChange={(e) => { if (e.target.files.length) addFiles(e.target.files); e.target.value = '' }} />
 
       {view && <Lightbox attachment={view.attachment} src={view.src} onClose={() => setView(null)} />}
+      {toDelete && (
+        <ConfirmDialog
+          message={`Delete “${toDelete.filename}”?`}
+          onConfirm={async () => { await removeExisting(toDelete.id); setToDelete(null) }}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
     </div>
   )
 }

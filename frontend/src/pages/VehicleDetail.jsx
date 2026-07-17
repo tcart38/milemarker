@@ -7,7 +7,7 @@ import {
 import {
   getVehicle, updateVehicle, deleteVehicle, getDashboard,
   getFuel, createFuel, updateFuel, deleteFuel,
-  getRecords, createRecord, updateRecord, deleteRecord,
+  getRecords, createRecord, updateRecord, deleteRecord, convertRecord,
   getReminders, createReminder, updateReminder, deleteReminder,
   uploadAttachment,
 } from '../api/client.js'
@@ -15,6 +15,7 @@ import { useSettings } from '../context/SettingsContext.jsx'
 import Modal from '../components/Modal.jsx'
 import Combobox from '../components/Combobox.jsx'
 import ItemsInput from '../components/ItemsInput.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import AttachmentsModal from '../components/AttachmentsModal.jsx'
 import RecordAttachments from '../components/RecordAttachments.jsx'
 import TrendChart, { ChartTable } from '../components/TrendChart.jsx'
@@ -957,6 +958,7 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
   const [form, setForm] = useState(null) // null | {} (add) | record (edit)
   const [attach, setAttach] = useState(null)
   usePendingAdd(pendingAdd, onAddConsumed, () => setForm((f) => f ?? {}))
+  const [toDelete, setToDelete] = useState(null)
   const del = async (rid) => { await deleteFuel(vehicleId, rid); reload(); onChange?.() }
   const lastFillup = rows[0] || null
 
@@ -981,7 +983,7 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
                 {distance(r.odometer)} · {r.quantity} {units.volume}{!r.is_fill_to_full && ' (partial)'}
                 {r.economy ? ` · ${r.economy} ${units.economy}` : ''}
               </p>
-              <RowActions attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => del(r.id)} />
+              <RowActions attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
             </div>
           </div>
         ))}
@@ -1005,7 +1007,7 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
                 <td className="px-3 py-2 tabular-nums">{money(r.cost)}</td>
                 <td className="px-3 py-2 tabular-nums text-slate-500">{r.price != null ? money(r.price) : '—'}</td>
                 <td className="px-3 py-2 tabular-nums text-slate-500">{r.economy ? `${r.economy} ${units.economy}` : '—'}</td>
-                <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => del(r.id)} /></td>
+                <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
             ))}
           </tbody>
@@ -1018,6 +1020,13 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
       {attach && (
         <AttachmentsModal vehicleId={vehicleId} recordType="fuel" recordId={attach.id}
           title={`Receipts — ${fmtDate(attach.date)} fuel`} onClose={() => setAttach(null)} onChanged={reload} />
+      )}
+      {toDelete && (
+        <ConfirmDialog
+          message={`Delete the ${fmtDate(toDelete.date)} ${isEv ? 'charge' : 'fill-up'} (${money(toDelete.cost)})?`}
+          onConfirm={async () => { await del(toDelete.id); setToDelete(null) }}
+          onCancel={() => setToDelete(null)}
+        />
       )}
     </TabShell>
   )
@@ -1113,6 +1122,7 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
   const [attach, setAttach] = useState(null)
   const defaultType = filter === 'all' ? 'service' : filter
   usePendingAdd(pendingAdd, onAddConsumed, () => setForm((f) => f ?? { type: defaultType }))
+  const [toDelete, setToDelete] = useState(null)
   const del = async (r) => { await deleteRecord(vehicleId, r.type, r.id); reload(); onChange?.() }
 
   const shown = useMemo(
@@ -1146,7 +1156,7 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
                 <span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span>
                 {fmtDate(r.date)}{r.odometer != null && ` · ${r.odometer.toLocaleString()}`}
               </p>
-              <RowActions attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => del(r)} />
+              <RowActions attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
             </div>
           </div>
         ))}
@@ -1169,7 +1179,7 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
                 <td className="px-3 py-2 tabular-nums">{r.odometer != null ? r.odometer.toLocaleString() : '—'}</td>
                 <td className="px-3 py-2">{r.description}</td>
                 <td className="px-3 py-2 tabular-nums">{money(r.cost)}</td>
-                <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => del(r)} /></td>
+                <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
             ))}
           </tbody>
@@ -1183,12 +1193,19 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
         <AttachmentsModal vehicleId={vehicleId} recordType={attach.type} recordId={attach.id}
           title={`Receipts — ${attach.description}`} onClose={() => setAttach(null)} onChanged={reload} />
       )}
+      {toDelete && (
+        <ConfirmDialog
+          message={`Delete the ${TYPE_LABEL[toDelete.type].toLowerCase()} record “${toDelete.description}” from ${fmtDate(toDelete.date)}? Its attachments are deleted too.`}
+          onConfirm={async () => { await del(toDelete); setToDelete(null) }}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
     </TabShell>
   )
 }
 
 function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
-  const { serviceOptions, addCustomService } = useSettings()
+  const { serviceOptions, refreshServiceTypes } = useSettings()
   const [type, setType] = useState(record?.type || initialType || 'service')
   const [f, setF] = useState(() => record ? {
     date: record.date, odometer: record.odometer != null ? String(record.odometer) : '',
@@ -1208,39 +1225,38 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
       items: f.items, cost: f.cost ? parseFloat(f.cost) : 0, notes: f.notes,
     }
     try {
-      const saved = record ? await updateRecord(vehicleId, type, record.id, body) : await createRecord(vehicleId, type, body)
-      await uploadPending(vehicleId, type, record ? record.id : saved.id, pending)
-      if (type === 'service') {
-        // Save only names the user typed in this session — items already on the
-        // record (e.g. stray import spellings) stay unlisted so the Settings
-        // review section keeps offering to clean them up.
-        const before = new Set((record?.items || (record?.description ? [record.description] : [])).map((s) => s.toLowerCase()))
-        for (const item of f.items) {
-          if (before.has(item.toLowerCase())) continue
-          if (!serviceOptions.some((o) => o.toLowerCase() === item.toLowerCase())) await addCustomService(item)
-        }
+      // Changing the record's kind moves it to another table (new id) first.
+      let targetId = record?.id
+      if (record && type !== record.type) {
+        const moved = await convertRecord(vehicleId, record.type, record.id, type)
+        targetId = moved.id
       }
+      const saved = record ? await updateRecord(vehicleId, type, targetId, body) : await createRecord(vehicleId, type, body)
+      await uploadPending(vehicleId, type, record ? targetId : saved.id, pending)
+      // The backend creates types for any new names; refresh the shared picker list.
+      if (type === 'service' || record?.type === 'service') refreshServiceTypes()
       onSaved()
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
 
   return (
     <Modal title={record ? `Edit ${TYPE_LABEL[type].toLowerCase()}` : 'Add record'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
-      {!record && (
-        <div>
-          <label className="label">Type</label>
-          <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-700/40">
-            {RECORD_TYPES.map((t) => (
-              <button key={t} type="button" onClick={() => setType(t)}
-                className={`h-9 rounded-md text-sm font-medium transition-colors ${
-                  type === t ? 'bg-white dark:bg-slate-800 text-brand shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                }`}>
-                {TYPE_LABEL[t]}
-              </button>
-            ))}
-          </div>
+      <div>
+        <label className="label">Type</label>
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-700/40">
+          {RECORD_TYPES.map((t) => (
+            <button key={t} type="button" onClick={() => setType(t)}
+              className={`h-9 rounded-md text-sm font-medium transition-colors ${
+                type === t ? 'bg-white dark:bg-slate-800 text-brand shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}>
+              {TYPE_LABEL[t]}
+            </button>
+          ))}
         </div>
-      )}
+        {record && type !== record.type && (
+          <p className="text-[11px] text-slate-400 mt-1">Saving moves this record to {TYPE_LABEL[type].toLowerCase()}s — attachments come along.</p>
+        )}
+      </div>
       <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
       <div>
         <label className="label">Items</label>
@@ -1252,7 +1268,7 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
         <div><label className="label">Cost</label><input value={f.cost} onChange={set('cost')} inputMode="decimal" className="input" /></div>
       </div>
       <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
-      <RecordAttachments vehicleId={vehicleId} recordType={type} recordId={record?.id} pending={pending} setPending={setPending} />
+      <RecordAttachments vehicleId={vehicleId} recordType={record?.type || type} recordId={record?.id} pending={pending} setPending={setPending} />
       {error && <p className="text-xs text-red-500">{error}</p>}
     </Modal>
   )
@@ -1272,6 +1288,7 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
   const sorted = useMemo(() => applySort(rows, sort), [rows, sort])
   const [form, setForm] = useState(null)
   usePendingAdd(pendingAdd, onAddConsumed, () => setForm((f) => f ?? {}))
+  const [toDelete, setToDelete] = useState(null)
   const del = async (rid) => { await deleteRecord(vehicleId, 'odometer', rid); reload(); onChange?.() }
 
   return (
@@ -1287,7 +1304,7 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
               <p className="text-sm font-medium tabular-nums">{distance(r.odometer)}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{fmtDate(r.date)}{r.notes ? ` · ${r.notes}` : ''}</p>
             </div>
-            <RowActions onEdit={() => setForm(r)} onDelete={() => del(r.id)} />
+            <RowActions onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
           </div>
         ))}
       </div>
@@ -1307,7 +1324,7 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
                 <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.date)}</td>
                 <td className="px-3 py-2 tabular-nums">{distance(r.odometer)}</td>
                 <td className="px-3 py-2 text-slate-500">{r.notes || '—'}</td>
-                <td className="px-3 py-2"><RowActions compact onEdit={() => setForm(r)} onDelete={() => del(r.id)} /></td>
+                <td className="px-3 py-2"><RowActions compact onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
             ))}
           </tbody>
@@ -1316,6 +1333,13 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
       {form && (
         <OdometerForm vehicleId={vehicleId} record={form.id ? form : null}
           onClose={() => setForm(null)} onSaved={() => { setForm(null); reload(); onChange?.() }} />
+      )}
+      {toDelete && (
+        <ConfirmDialog
+          message={`Delete the ${distance(toDelete.odometer)} reading from ${fmtDate(toDelete.date)}?`}
+          onConfirm={async () => { await del(toDelete.id); setToDelete(null) }}
+          onCancel={() => setToDelete(null)}
+        />
       )}
     </TabShell>
   )
@@ -1367,6 +1391,7 @@ function ReminderTab({ vehicleId, distance, currentOdo, pendingAdd, onAddConsume
   const { rows, reload } = useRecords(() => getReminders(vehicleId), [vehicleId])
   const [form, setForm] = useState(null)
   usePendingAdd(pendingAdd, onAddConsumed, () => setForm((f) => f ?? {}))
+  const [toDelete, setToDelete] = useState(null)
   const del = async (rid) => { await deleteReminder(vehicleId, rid); reload() }
 
   return (
@@ -1401,7 +1426,7 @@ function ReminderTab({ vehicleId, distance, currentOdo, pendingAdd, onAddConsume
                       <span className="text-amber-500"> · log this service or set a starting point</span>
                     )}
                   </p>
-                  <RowActions onEdit={() => setForm(r)} onDelete={() => del(r.id)} />
+                  <RowActions onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
                 </div>
               </div>
             )
@@ -1412,12 +1437,19 @@ function ReminderTab({ vehicleId, distance, currentOdo, pendingAdd, onAddConsume
         <ReminderForm vehicleId={vehicleId} record={form.id ? form : null}
           onClose={() => setForm(null)} onSaved={() => { setForm(null); reload() }} />
       )}
+      {toDelete && (
+        <ConfirmDialog
+          message={`Delete the “${toDelete.description}” reminder?`}
+          onConfirm={async () => { await del(toDelete.id); setToDelete(null) }}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
     </TabShell>
   )
 }
 
 function ReminderForm({ vehicleId, record, onClose, onSaved }) {
-  const { serviceOptions, addCustomService, units } = useSettings()
+  const { serviceOptions, refreshServiceTypes, units } = useSettings()
   const [f, setF] = useState(() => record ? {
     description: record.description,
     is_recurring: !!record.is_recurring,
@@ -1462,8 +1494,8 @@ function ReminderForm({ vehicleId, record, onClose, onSaved }) {
     try {
       if (record) await updateReminder(vehicleId, record.id, body)
       else await createReminder(vehicleId, body)
-      // A brand-new description becomes a reusable service type.
-      if (isNewService) await addCustomService(f.description)
+      // A brand-new description became a reusable service type server-side.
+      if (isNewService) refreshServiceTypes()
       onSaved()
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }

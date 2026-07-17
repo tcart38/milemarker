@@ -34,6 +34,7 @@ export const getRecords = (vehicleId, type) => request(`/vehicles/${vehicleId}/r
 export const createRecord = (vehicleId, type, body) => request(`/vehicles/${vehicleId}/records/${type}`, { method: 'POST', body })
 export const updateRecord = (vehicleId, type, id, body) => request(`/vehicles/${vehicleId}/records/${type}/${id}`, { method: 'PATCH', body })
 export const deleteRecord = (vehicleId, type, id) => request(`/vehicles/${vehicleId}/records/${type}/${id}`, { method: 'DELETE' })
+export const convertRecord = (vehicleId, type, id, to) => request(`/vehicles/${vehicleId}/records/${type}/${id}/convert`, { method: 'POST', body: { to } })
 
 // Reminders
 export const getReminders = (vehicleId) => request(`/vehicles/${vehicleId}/reminders`)
@@ -58,8 +59,12 @@ export const getSettings = () => request('/settings')
 export const updateSettings = (body) => request('/settings', { method: 'PUT', body })
 
 // Service types
-export const getServiceTypeUsage = () => request('/service-types')
-export const renameServiceType = (from, to) => request('/service-types/rename', { method: 'POST', body: { from, to } })
+export const getServiceTypes = () => request('/service-types')
+export const createServiceType = (name) => request('/service-types', { method: 'POST', body: { name } })
+export const updateServiceType = (id, body) => request(`/service-types/${id}`, { method: 'PATCH', body })
+export const mergeServiceType = (id, into, remember = true) => request(`/service-types/${id}/merge`, { method: 'POST', body: { into, remember } })
+export const deleteServiceType = (id) => request(`/service-types/${id}`, { method: 'DELETE' })
+export const undoServiceTypeOp = (undoId) => request(`/service-types/undo/${undoId}`, { method: 'POST' })
 
 // Import records from a CSV file into a vehicle
 export const importCsv = async (vehicleId, file) => {

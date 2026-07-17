@@ -5,6 +5,7 @@ import { writeFileSync, mkdirSync, unlinkSync } from 'fs'
 import { config } from '../config.js'
 import { getDb } from '../db/index.js'
 import { readLiteDb } from '../lib/litedb.js'
+import { resolveServiceTypes, setRecordItems } from './service-types.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 2000 } })
@@ -155,11 +156,17 @@ router.post('/lubelogger', upload.array('files'), (req, res) => {
       for (const r of col(colNameLL)) {
         const vid = vehicleIdMap.get(r.VehicleId)
         if (!vid || !dateStr(r.Date)) continue
-        const desc = (r.Description || 'Imported record').trim()
+        let desc = (r.Description || 'Imported record').trim()
+        let resolved = null
+        if (type === 'service') {
+          resolved = resolveServiceTypes(db, [desc], { fromImport: true })
+          desc = resolved.names.join(', ')
+        }
         const { lastInsertRowid } = db.prepare(`
           INSERT INTO ${table} (vehicle_id, date, odometer, description, items, cost, notes)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(vid, dateStr(r.Date), r.Mileage || null, desc, JSON.stringify([desc]), r.Cost ?? 0, r.Notes || null)
+        `).run(vid, dateStr(r.Date), r.Mileage || null, desc, JSON.stringify(resolved ? resolved.names : [desc]), r.Cost ?? 0, r.Notes || null)
+        if (resolved) setRecordItems(db, Number(lastInsertRowid), resolved.ids, resolved.names)
         summary[type]++
         attach(type, Number(lastInsertRowid), r.Files)
       }
@@ -187,20 +194,22 @@ router.post('/lubelogger', upload.array('files'), (req, res) => {
         const interval_miles = useOdo ? miles : null
         const interval_months = useDate ? months : null
         if (!interval_miles && !interval_months) continue
+        const resolvedType = resolveServiceTypes(db, [r.Description], { fromImport: true })
         // LubeLogger stores the NEXT due point; our recurring model anchors on
         // last-done, so walk one interval back from the due point.
         const base_date = due_date && interval_months ? addMonths(due_date, -interval_months) : null
         const base_odometer = due_odometer != null && interval_miles ? due_odometer - interval_miles : null
         db.prepare(`
-          INSERT INTO reminders (vehicle_id, description, is_recurring, interval_miles, interval_months, base_date, base_odometer)
-          VALUES (?, ?, 1, ?, ?, ?, ?)
-        `).run(vid, r.Description, interval_miles, interval_months, base_date, base_odometer)
+          INSERT INTO reminders (vehicle_id, description, type_id, is_recurring, interval_miles, interval_months, base_date, base_odometer)
+          VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+        `).run(vid, resolvedType.names[0], resolvedType.ids[0], interval_miles, interval_months, base_date, base_odometer)
       } else {
         if (!due_date && due_odometer == null) continue
+        const resolvedType = resolveServiceTypes(db, [r.Description], { fromImport: true })
         db.prepare(`
-          INSERT INTO reminders (vehicle_id, description, is_recurring, due_date, due_odometer)
-          VALUES (?, ?, 0, ?, ?)
-        `).run(vid, r.Description, due_date, due_odometer)
+          INSERT INTO reminders (vehicle_id, description, type_id, is_recurring, due_date, due_odometer)
+          VALUES (?, ?, ?, 0, ?, ?)
+        `).run(vid, resolvedType.names[0], resolvedType.ids[0], due_date, due_odometer)
       }
       summary.reminders++
     }
@@ -349,14 +358,19 @@ router.post('/csv', upload.single('file'), (req, res) => {
           .run(p.vehicleId, p.date, p.odometer, p.notes)
         summary.odometer++
       } else {
-        const desc = p.items.join(', ')
+        // Service names resolve through remembered aliases, so a re-import of a
+        // previously cleaned-up spelling both dedupes and tags correctly.
+        const resolved = p.type === 'service' ? resolveServiceTypes(db, p.items, { fromImport: true }) : null
+        const names = resolved ? resolved.names : p.items
+        const desc = names.join(', ')
         const dupe = db.prepare(`SELECT id FROM ${TABLE[p.type]} WHERE vehicle_id = ? AND date = ? AND description = ? AND cost = ?`)
           .get(p.vehicleId, p.date, desc, p.cost)
         if (dupe) { summary.skipped_duplicates++; continue }
-        db.prepare(`
+        const { lastInsertRowid } = db.prepare(`
           INSERT INTO ${TABLE[p.type]} (vehicle_id, date, odometer, description, items, cost, notes)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(p.vehicleId, p.date, p.odometer, desc, JSON.stringify(p.items), p.cost, p.notes)
+        `).run(p.vehicleId, p.date, p.odometer, desc, JSON.stringify(names), p.cost, p.notes)
+        if (resolved) setRecordItems(db, Number(lastInsertRowid), resolved.ids, resolved.names)
         summary[p.type]++
       }
     }

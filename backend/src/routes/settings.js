@@ -19,7 +19,7 @@ router.get('/', (req, res) => {
 // PUT /api/settings
 router.put('/', (req, res) => {
   const db = getDb()
-  const allowed = ['distance_unit', 'volume_unit', 'currency_symbol', 'date_format', 'custom_services']
+  const allowed = ['distance_unit', 'volume_unit', 'currency_symbol', 'date_format']
   const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
   for (const k of allowed) {
     if (req.body[k] !== undefined) upsert.run(k, String(req.body[k]))
