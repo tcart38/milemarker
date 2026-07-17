@@ -2,10 +2,13 @@
 export const PRESETS = {
   service: [
     'Oil change', 'Tire rotation', 'Engine air filter', 'Cabin air filter',
-    'Brake pads', 'Brake fluid flush', 'Transmission fluid', 'Coolant flush',
+    'Front brake pads', 'Rear brake pads',
+    'Front rotors', 'Rear rotors', 'Brake fluid flush',
+    'Transmission fluid', 'Coolant flush',
     'Spark plugs', 'Battery replacement', 'Wiper blades', 'Wheel alignment',
-    'Fuel filter', 'Serpentine belt', 'Timing belt', 'Differential fluid',
-    'Power steering fluid', 'A/C service', 'Safety inspection', 'Emissions test',
+    'Tire balance', 'Fuel filter', 'Serpentine belt', 'Timing belt',
+    'Differential fluid', 'Transfer case fluid', 'Power steering fluid',
+    'A/C service', 'Safety inspection', 'Emissions test',
     'Registration renewal', 'Tire replacement', 'Wash / detail',
   ],
   repair: [
