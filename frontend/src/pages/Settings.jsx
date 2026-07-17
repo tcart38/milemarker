@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
-import { Check, Plus, X, Download, Upload, ArrowLeft } from 'lucide-react'
-import { updateSettings, getVehicles, getFuel, getRecords, getReminders, importLubeLogger, importCsv } from '../api/client.js'
+import { Check, Plus, X, Download, Upload, ArrowLeft, Pencil } from 'lucide-react'
+import { updateSettings, getVehicles, getFuel, getRecords, getReminders, importLubeLogger, importCsv, getServiceTypeUsage, renameServiceType } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { PRESETS } from '../presets.js'
@@ -17,19 +17,61 @@ function SettingsCard({ title, description, children }) {
 }
 
 function ServiceTypes() {
-  const { customServices, addCustomService, removeCustomService } = useSettings()
+  const { customServices, addCustomService, removeCustomService, renameCustomService } = useSettings()
   const [draft, setDraft] = useState('')
   const [error, setError] = useState(null)
+  const [usage, setUsage] = useState([]) // [{ name, count }] from service records
+  const [editing, setEditing] = useState(null)
+  const [renameTo, setRenameTo] = useState('')
+  const [renaming, setRenaming] = useState(false)
+  const [renamed, setRenamed] = useState(null)
 
-  const add = async () => {
-    const name = draft.trim()
+  const refreshUsage = () => getServiceTypeUsage().then(setUsage).catch(() => {})
+  useEffect(() => { refreshUsage() }, [])
+
+  const lc = (s) => s.toLowerCase()
+  const listed = new Set([...PRESETS.service, ...customServices].map(lc))
+  const fromRecords = usage.filter((u) => !listed.has(lc(u.name)))
+  const countFor = (name) => usage.find((u) => lc(u.name) === lc(name))?.count || 0
+
+  const add = async (name) => {
+    name = name.trim()
     if (!name) return
-    const exists = [...PRESETS.service, ...customServices].some((s) => s.toLowerCase() === name.toLowerCase())
+    const exists = [...PRESETS.service, ...customServices].some((s) => lc(s) === lc(name))
     if (exists) { setError(`“${name}” already exists.`); return }
     setError(null)
     await addCustomService(name)
     setDraft('')
   }
+
+  const startRename = (name) => {
+    setEditing(name); setRenameTo(name); setRenamed(null); setError(null)
+  }
+
+  const doRename = async () => {
+    const from = editing, to = renameTo.trim()
+    if (!to || to === from) { setEditing(null); return }
+    setRenaming(true); setError(null)
+    try {
+      const result = await renameServiceType(from, to)
+      await renameCustomService(from, to)
+      await refreshUsage()
+      const parts = [`${result.records} record${result.records === 1 ? '' : 's'}`]
+      if (result.reminders > 0) parts.push(`${result.reminders} reminder${result.reminders === 1 ? '' : 's'}`)
+      setRenamed(`Renamed “${from}” to “${to}” — ${parts.join(' and ')} updated.`)
+      setEditing(null)
+    } catch (err) { setError(err.message) } finally { setRenaming(false) }
+  }
+
+  const editButton = (name) => (
+    <button
+      onClick={() => startRename(name)}
+      className="p-0.5 rounded-full hover:bg-brand/20"
+      title={`Rename or merge ${name}`} aria-label={`Rename or merge ${name}`}
+    >
+      <Pencil size={11} />
+    </button>
+  )
 
   return (
     <SettingsCard
@@ -40,14 +82,40 @@ function ServiceTypes() {
         <input
           value={draft}
           onChange={(e) => { setDraft(e.target.value); setError(null) }}
-          onKeyDown={(e) => { if (e.key === 'Enter') add() }}
+          onKeyDown={(e) => { if (e.key === 'Enter') add(draft) }}
           className="input flex-1"
           placeholder="Add a service type…"
           aria-label="New service type"
         />
-        <button onClick={add} disabled={!draft.trim()} className="btn-primary disabled:opacity-50"><Plus size={14} /> Add</button>
+        <button onClick={() => add(draft)} disabled={!draft.trim()} className="btn-primary disabled:opacity-50"><Plus size={14} /> Add</button>
       </div>
       {error && <p className="text-xs text-red-500 !mt-2">{error}</p>}
+      {renamed && <p className="text-xs text-emerald-500 !mt-2 flex items-center gap-1"><Check size={12} /> {renamed}</p>}
+
+      {editing && (
+        <div className="rounded-lg border border-brand/40 bg-brand/5 p-3 space-y-2">
+          <p className="text-sm">
+            Rename <strong>{editing}</strong> everywhere{countFor(editing) > 0 && <> — used by {countFor(editing)} record{countFor(editing) === 1 ? '' : 's'}</>}.
+            Records and matching reminders are updated. Pick an existing type to merge into it.
+          </p>
+          <div className="flex gap-2">
+            <input
+              list="service-type-names" value={renameTo} autoFocus
+              onChange={(e) => setRenameTo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') setEditing(null) }}
+              className="input flex-1" aria-label="New name"
+            />
+            <datalist id="service-type-names">
+              {[...new Set([...PRESETS.service, ...customServices, ...usage.map((u) => u.name)])]
+                .filter((n) => n !== editing).map((n) => <option key={n} value={n} />)}
+            </datalist>
+            <button onClick={doRename} disabled={renaming || !renameTo.trim() || renameTo.trim() === editing} className="btn-primary disabled:opacity-50">
+              {renaming ? 'Renaming…' : 'Rename'}
+            </button>
+            <button onClick={() => setEditing(null)} className="btn-ghost">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {customServices.length > 0 && (
         <div>
@@ -56,6 +124,7 @@ function ServiceTypes() {
             {customServices.map((s) => (
               <span key={s} className="chip chip-on !cursor-default gap-1 pr-1.5">
                 {s}
+                {editButton(s)}
                 <button
                   onClick={() => removeCustomService(s)}
                   className="p-0.5 rounded-full hover:bg-brand/20"
@@ -67,6 +136,30 @@ function ServiceTypes() {
             ))}
           </div>
           <p className="text-[11px] text-slate-400 mt-2">Removing a type doesn't change records or reminders that already use it.</p>
+        </div>
+      )}
+
+      {fromRecords.length > 0 && (
+        <div>
+          <p className="label">In your records but not in your list</p>
+          <div className="flex flex-wrap gap-1.5">
+            {fromRecords.map((u) => (
+              <span key={u.name} className="chip chip-off !cursor-default gap-1 pr-1.5">
+                {u.name} <span className="text-slate-400 tabular-nums">×{u.count}</span>
+                {editButton(u.name)}
+                <button
+                  onClick={() => add(u.name)}
+                  className="p-0.5 rounded-full hover:bg-brand/20"
+                  title={`Add ${u.name} to your list`} aria-label={`Add ${u.name} to your list`}
+                >
+                  <Plus size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Usually from imports. Add the ones you want offered in forms, or rename a stray spelling to merge it into a type you already use.
+          </p>
         </div>
       )}
 

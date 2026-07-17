@@ -1188,7 +1188,7 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
 }
 
 function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
-  const { serviceOptions } = useSettings()
+  const { serviceOptions, addCustomService } = useSettings()
   const [type, setType] = useState(record?.type || initialType || 'service')
   const [f, setF] = useState(() => record ? {
     date: record.date, odometer: record.odometer != null ? String(record.odometer) : '',
@@ -1210,6 +1210,11 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
     try {
       const saved = record ? await updateRecord(vehicleId, type, record.id, body) : await createRecord(vehicleId, type, body)
       await uploadPending(vehicleId, type, record ? record.id : saved.id, pending)
+      if (type === 'service') {
+        for (const item of f.items) {
+          if (!serviceOptions.some((o) => o.toLowerCase() === item.toLowerCase())) await addCustomService(item)
+        }
+      }
       onSaved()
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }

@@ -11,6 +11,7 @@ import remindersRouter from './routes/reminders.js'
 import dashboardRouter from './routes/dashboard.js'
 import attachmentsRouter from './routes/attachments.js'
 import settingsRouter from './routes/settings.js'
+import serviceTypesRouter from './routes/service-types.js'
 import importRouter from './routes/import.js'
 import backupRouter from './routes/backup.js'
 
@@ -49,6 +50,7 @@ app.use('/api/vehicles/:vehicleId/reminders', remindersRouter)
 app.use('/api/vehicles/:vehicleId/dashboard', dashboardRouter)
 app.use('/api/attachments', attachmentsRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/service-types', serviceTypesRouter)
 app.use('/api/import', importRouter)
 app.use('/api/backup', backupRouter)
 

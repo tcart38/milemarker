@@ -65,10 +65,20 @@ export function SettingsProvider({ children }) {
     await saveCustomServices(customServices.filter((s) => s !== name))
   }, [customServices, saveCustomServices])
 
+  // After renaming a type everywhere: if the old name was in the custom list,
+  // swap it for the new one — unless the target is a preset or already listed.
+  const renameCustomService = useCallback(async (from, to) => {
+    const rest = customServices.filter((s) => s.toLowerCase() !== from.toLowerCase())
+    if (rest.length === customServices.length) return // wasn't a custom type
+    const isPreset = PRESETS.service.some((s) => s.toLowerCase() === to.toLowerCase())
+    const exists = rest.some((s) => s.toLowerCase() === to.toLowerCase())
+    await saveCustomServices(isPreset || exists ? rest : [...rest, to])
+  }, [customServices, saveCustomServices])
+
   return (
     <SettingsContext.Provider value={{
       settings, setSettings, refresh, money, distance, units,
-      customServices, serviceOptions, addCustomService, removeCustomService,
+      customServices, serviceOptions, addCustomService, removeCustomService, renameCustomService,
     }}>
       {children}
     </SettingsContext.Provider>

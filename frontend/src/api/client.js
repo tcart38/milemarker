@@ -57,6 +57,10 @@ export const attachmentUrl = (id) => `/api/attachments/${id}/file`
 export const getSettings = () => request('/settings')
 export const updateSettings = (body) => request('/settings', { method: 'PUT', body })
 
+// Service types
+export const getServiceTypeUsage = () => request('/service-types')
+export const renameServiceType = (from, to) => request('/service-types/rename', { method: 'POST', body: { from, to } })
+
 // Import records from a CSV file into a vehicle
 export const importCsv = async (vehicleId, file) => {
   const form = new FormData()
