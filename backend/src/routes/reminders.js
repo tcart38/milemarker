@@ -3,6 +3,7 @@ import { getDb } from '../db/index.js'
 import { currentOdometer } from './vehicles.js'
 import { recordItems } from './records.js'
 import { resolveServiceTypes } from './service-types.js'
+import { tireStats } from './tires.js'
 
 const router = Router({ mergeParams: true })
 
@@ -109,11 +110,49 @@ function decorate(db, vehicleId, r, odo) {
   }
 }
 
+// The rotation a tire set implies, with no stored row behind it. Only the set
+// that's on the car gets one — a set in the garage isn't wearing, so nothing is
+// due on it. (Tread life deliberately stays off this page: it's a wear gauge on
+// the Tires tab, not a task to tick off.)
+//
+// It's expressed as a due odometer on the *vehicle*: a set only accrues while
+// mounted, so its remaining miles are added to the current reading. That makes
+// it read and rank exactly like a stored reminder.
+function tireReminders(db, vehicleId, odo) {
+  if (!db.prepare('SELECT 1 FROM tire_sets WHERE vehicle_id = ? LIMIT 1').get(vehicleId)) return []
+
+  const stats = tireStats(db, vehicleId)
+  const set = stats.sets.find((s) => s.is_mounted && !s.is_retired)
+  if (!set || odo == null || !(set.rotate_miles > 0)) return []
+
+  // With no rotation ever logged, the miles logged on the set are the best
+  // stand-in for "how long since" — assuming zero would say it's fresh.
+  const since = set.miles_since_rotation ?? set.tracked_miles
+  const due_odometer = odo + (set.rotate_miles - since)
+  return [{
+    id: `tire-rotate-${set.id}`,
+    source: 'tire',
+    tire_set_id: set.id,
+    tire_set_name: set.name,
+    description: `Tire rotation — ${set.name}`,
+    notes: null,
+    is_recurring: 1,
+    interval_miles: set.rotate_miles,
+    interval_months: null,
+    last_done_date: set.last_rotation?.date ?? null,
+    last_done_odometer: set.last_rotation?.odometer ?? null,
+    due_date: null,
+    due_odometer,
+    has_baseline: true,
+    urgency: urgencyFromDue(null, due_odometer, odo),
+  }]
+}
+
 // Decorated reminders for a vehicle, most pressing first. Shared with the dashboard.
 export function decoratedReminders(db, vehicleId, odo = null) {
   const o = odo ?? currentOdometer(db, vehicleId)
   const rows = db.prepare('SELECT * FROM reminders WHERE vehicle_id = ?').all(vehicleId)
-  const decorated = rows.map((r) => decorate(db, vehicleId, r, o))
+  const decorated = [...rows.map((r) => decorate(db, vehicleId, r, o)), ...tireReminders(db, vehicleId, o)]
   const rank = { overdue: 3, 'due-soon': 2, upcoming: 1, 'not-due': 0 }
   return decorated.sort((a, b) => rank[b.urgency] - rank[a.urgency])
 }

@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Car, Gauge, Fuel, Zap } from 'lucide-react'
 import { getVehicles, createVehicle, attachmentUrl } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import Modal from '../components/Modal.jsx'
-
-function vehicleTitle(v) {
-  const ymm = [v.year, v.make, v.model].filter(Boolean).join(' ')
-  return v.name || ymm || 'Unnamed vehicle'
-}
+import { vehicleTitle } from '../vehicles.js'
 
 function VehicleAvatar({ v }) {
   if (v.photo_attachment_id) {
@@ -72,7 +68,9 @@ export default function Garage() {
   const { money, distance } = useSettings()
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
+  // ?add=1 (the nav switcher's "Add a vehicle") opens the form on arrival.
+  const [params, setParams] = useSearchParams()
+  const [adding, setAdding] = useState(() => params.get('add') === '1')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -80,6 +78,12 @@ export default function Garage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (!params.get('add')) return
+    const p = new URLSearchParams(params)
+    p.delete('add')
+    setParams(p, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = vehicles.filter((v) => !v.is_archived)
   const sold = vehicles.filter((v) => v.is_archived)

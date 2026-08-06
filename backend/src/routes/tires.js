@@ -60,7 +60,10 @@ export function tireStats(db, vehicleId) {
     const end = next ? next.odometer : odometer
     const dist = end != null ? Math.max(0, end - c.odometer) : null
     if (c.set_id != null && dist != null) miles.set(c.set_id, (miles.get(c.set_id) ?? 0) + dist)
-    return { ...c, miles: dist, is_current: !next }
+    // Naming the set that was already on isn't a swap — it just splits one
+    // stint in two. Usually a duplicate the user will want to remove.
+    const redundant = i > 0 && changes[i - 1].set_id === c.set_id
+    return { ...c, miles: dist, is_current: !next, is_redundant: redundant }
   })
 
   const mounted = changes.length ? changes[changes.length - 1].set_id : null
@@ -193,6 +196,11 @@ router.patch('/changes/:id', (req, res) => {
   const db = getDb()
   const change = db.prepare('SELECT * FROM tire_changes WHERE id = ? AND vehicle_id = ?').get(req.params.id, req.params.vehicleId)
   if (!change) return res.status(404).json({ error: 'Not found' })
+  const newSetId = num(req.body.set_id)
+  if (req.body.set_id !== undefined && newSetId != null &&
+      !db.prepare('SELECT 1 FROM tire_sets WHERE id = ? AND vehicle_id = ?').get(newSetId, req.params.vehicleId)) {
+    return res.status(400).json({ error: 'Unknown tire set' })
+  }
   for (const f of CHANGE_FIELDS) {
     if (req.body[f] === undefined) continue
     const val = f === 'notes' ? (req.body[f] || null) : f === 'date' ? req.body[f] : num(req.body[f])
