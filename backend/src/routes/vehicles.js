@@ -3,7 +3,8 @@ import { getDb } from '../db/index.js'
 
 const router = Router()
 
-// Highest odometer seen across every record type for a vehicle.
+// Highest odometer seen across every record type for a vehicle. A tire
+// changeover is an odometer sighting like any other, so it counts too.
 export function currentOdometer(db, vehicleId) {
   const row = db.prepare(`
     SELECT MAX(odo) AS odo FROM (
@@ -12,6 +13,7 @@ export function currentOdometer(db, vehicleId) {
       UNION ALL SELECT MAX(odometer) FROM repair_records WHERE vehicle_id = @id
       UNION ALL SELECT MAX(odometer) FROM upgrade_records WHERE vehicle_id = @id
       UNION ALL SELECT MAX(odometer) FROM odometer_records WHERE vehicle_id = @id
+      UNION ALL SELECT MAX(odometer) FROM tire_changes WHERE vehicle_id = @id
     )
   `).get({ id: vehicleId })
   return row?.odo ?? null
@@ -26,6 +28,7 @@ export function firstOdometer(db, vehicleId) {
       UNION ALL SELECT MIN(odometer) FROM repair_records WHERE vehicle_id = @id
       UNION ALL SELECT MIN(odometer) FROM upgrade_records WHERE vehicle_id = @id
       UNION ALL SELECT MIN(odometer) FROM odometer_records WHERE vehicle_id = @id
+      UNION ALL SELECT MIN(odometer) FROM tire_changes WHERE vehicle_id = @id
     )
   `).get({ id: vehicleId })
   return row?.odo ?? null

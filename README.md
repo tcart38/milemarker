@@ -8,6 +8,7 @@ Inspired by the excellent [LubeLogger](https://lubelogger.com) — MileMarker is
 
 - **Fuel & charging log** — fill-ups with cost, quantity, partial-fill and missed-fill-up handling, automatic fuel-economy and price-per-gallon calculation. Vehicles marked as **electric** track charges in kWh with mi/kWh efficiency instead.
 - **Service, repair & upgrade records** — multiple line items per visit, costs, notes, and attached receipt photos/documents. Sortable, filterable history.
+- **Tire sets** — track each physical set (summer, winter, the ones it came with) separately. Log a changeover and the miles on every set are worked out from your odometer, so you always know how much life each has left and *which* set that rotation was on. Wear bar against the treadwear rating, per-set rotation intervals, cost per 1,000 miles, and tread-depth readings.
 - **Reminders** — recurring (every X miles and/or Y months, auto-advancing when you log the matching service) or one-time (due at a date and/or odometer). Urgency-ranked with progress bars.
 - **Overview dashboard** — stat tiles, upcoming reminders, and multi-metric trend charts (fuel economy, distance driven, monthly spend, fuel price) with time ranges and a table view.
 - **Vehicles** — photos and documents (insurance, registration), per-vehicle notes, purchase/sale prices with all-in cost of ownership, and a sold-vehicle archive that keeps full history.

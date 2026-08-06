@@ -119,12 +119,55 @@ export function runMigrations(db) {
       type_id INTEGER NOT NULL REFERENCES service_types(id) ON DELETE CASCADE
     );
 
+    -- A physical set of tires (a summer set, a winter set, the ones that came
+    -- with the car). Mileage isn't stored — it's derived from the changeover
+    -- timeline below, so it stays right when a past swap is corrected.
+    CREATE TABLE IF NOT EXISTS tire_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vehicle_id INTEGER NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      size TEXT,
+      purchase_date TEXT,
+      cost REAL,
+      expected_miles INTEGER,          -- treadwear rating, for the wear bar
+      rotate_miles INTEGER,            -- rotation interval for this set
+      notes TEXT,
+      is_retired INTEGER NOT NULL DEFAULT 0,
+      date_added TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- "From this odometer on, this set is the one on the car." A NULL set_id
+    -- means nothing tracked is mounted, so a stored set stops accumulating.
+    CREATE TABLE IF NOT EXISTS tire_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vehicle_id INTEGER NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+      set_id INTEGER REFERENCES tire_sets(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      odometer INTEGER NOT NULL,
+      notes TEXT,
+      date_added TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Tread depth measurements, per corner (any subset may be filled in).
+    CREATE TABLE IF NOT EXISTS tire_treads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      set_id INTEGER NOT NULL REFERENCES tire_sets(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      odometer INTEGER,
+      lf REAL, rf REAL, lr REAL, rr REAL,
+      notes TEXT,
+      date_added TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_fuel_vehicle ON fuel_records(vehicle_id);
     CREATE INDEX IF NOT EXISTS idx_service_vehicle ON service_records(vehicle_id);
     CREATE INDEX IF NOT EXISTS idx_repair_vehicle ON repair_records(vehicle_id);
     CREATE INDEX IF NOT EXISTS idx_upgrade_vehicle ON upgrade_records(vehicle_id);
     CREATE INDEX IF NOT EXISTS idx_odometer_vehicle ON odometer_records(vehicle_id);
     CREATE INDEX IF NOT EXISTS idx_reminders_vehicle ON reminders(vehicle_id);
+    CREATE INDEX IF NOT EXISTS idx_tire_sets_vehicle ON tire_sets(vehicle_id);
+    CREATE INDEX IF NOT EXISTS idx_tire_changes_vehicle ON tire_changes(vehicle_id);
+    CREATE INDEX IF NOT EXISTS idx_tire_treads_set ON tire_treads(set_id);
   `)
 
   // Migrations for columns added after the initial release.
@@ -154,6 +197,17 @@ export function runMigrations(db) {
 
   // Reminders link the service type they track (kept in sync on rename/merge).
   try { db.exec('ALTER TABLE reminders ADD COLUMN type_id INTEGER REFERENCES service_types(id)') } catch {}
+
+  // Tires bought before you started tracking already have miles on them —
+  // an estimate here is added to everything measured from the changeovers.
+  try { db.exec('ALTER TABLE tire_sets ADD COLUMN baseline_miles INTEGER') } catch {}
+
+  // Records can name the tire set they were performed on — so a rotation says
+  // *which* set it rotated. Cleared by hand when a set is deleted (an
+  // ALTER-added reference can't carry an ON DELETE action).
+  for (const t of ['service_records', 'repair_records', 'upgrade_records']) {
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN tire_set_id INTEGER REFERENCES tire_sets(id)`) } catch {}
+  }
 
   seed(db)
   migrateServiceTypes(db)

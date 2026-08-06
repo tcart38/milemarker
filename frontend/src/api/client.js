@@ -36,6 +36,17 @@ export const updateRecord = (vehicleId, type, id, body) => request(`/vehicles/${
 export const deleteRecord = (vehicleId, type, id) => request(`/vehicles/${vehicleId}/records/${type}/${id}`, { method: 'DELETE' })
 export const convertRecord = (vehicleId, type, id, to) => request(`/vehicles/${vehicleId}/records/${type}/${id}/convert`, { method: 'POST', body: { to } })
 
+// Tire sets — every write returns the recomputed picture for the vehicle
+export const getTires = (vehicleId) => request(`/vehicles/${vehicleId}/tires`)
+export const createTireSet = (vehicleId, body) => request(`/vehicles/${vehicleId}/tires/sets`, { method: 'POST', body })
+export const updateTireSet = (vehicleId, id, body) => request(`/vehicles/${vehicleId}/tires/sets/${id}`, { method: 'PATCH', body })
+export const deleteTireSet = (vehicleId, id) => request(`/vehicles/${vehicleId}/tires/sets/${id}`, { method: 'DELETE' })
+export const createTireChange = (vehicleId, body) => request(`/vehicles/${vehicleId}/tires/changes`, { method: 'POST', body })
+export const updateTireChange = (vehicleId, id, body) => request(`/vehicles/${vehicleId}/tires/changes/${id}`, { method: 'PATCH', body })
+export const deleteTireChange = (vehicleId, id) => request(`/vehicles/${vehicleId}/tires/changes/${id}`, { method: 'DELETE' })
+export const createTread = (vehicleId, setId, body) => request(`/vehicles/${vehicleId}/tires/sets/${setId}/treads`, { method: 'POST', body })
+export const deleteTread = (vehicleId, id) => request(`/vehicles/${vehicleId}/tires/treads/${id}`, { method: 'DELETE' })
+
 // Reminders
 export const getReminders = (vehicleId) => request(`/vehicles/${vehicleId}/reminders`)
 export const createReminder = (vehicleId, body) => request(`/vehicles/${vehicleId}/reminders`, { method: 'POST', body })

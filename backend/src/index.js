@@ -9,6 +9,7 @@ import fuelRouter from './routes/fuel.js'
 import recordsRouter from './routes/records.js'
 import remindersRouter from './routes/reminders.js'
 import dashboardRouter from './routes/dashboard.js'
+import tiresRouter from './routes/tires.js'
 import attachmentsRouter from './routes/attachments.js'
 import settingsRouter from './routes/settings.js'
 import serviceTypesRouter from './routes/service-types.js'
@@ -48,6 +49,7 @@ app.use('/api/vehicles/:vehicleId/fuel', fuelRouter)
 app.use('/api/vehicles/:vehicleId/records', recordsRouter)
 app.use('/api/vehicles/:vehicleId/reminders', remindersRouter)
 app.use('/api/vehicles/:vehicleId/dashboard', dashboardRouter)
+app.use('/api/vehicles/:vehicleId/tires', tiresRouter)
 app.use('/api/attachments', attachmentsRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/service-types', serviceTypesRouter)

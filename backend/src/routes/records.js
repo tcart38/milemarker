@@ -78,7 +78,7 @@ router.post('/:type', (req, res) => {
   const t = table(type)
   if (!t) return res.status(404).json({ error: 'Unknown record type' })
   const db = getDb()
-  const { date, odometer, cost = 0, notes } = req.body
+  const { date, odometer, cost = 0, notes, tire_set_id } = req.body
   if (!date) return res.status(400).json({ error: 'date is required' })
 
   if (type === 'odometer') {
@@ -91,18 +91,23 @@ router.post('/:type', (req, res) => {
 
   const items = incomingItems(req.body)
   if (items.length === 0) return res.status(400).json({ error: 'Add at least one item' })
+  const tireSet = tire_set_id || null
+  const insert = db.prepare(
+    `INSERT INTO ${t} (vehicle_id, date, odometer, description, items, cost, notes, tire_set_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  )
   if (type === 'service') {
     // Names resolve to first-class types (creating any the user just invented).
     const resolved = resolveServiceTypes(db, items)
-    const { lastInsertRowid } = db.prepare(
-      `INSERT INTO ${t} (vehicle_id, date, odometer, description, items, cost, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(req.params.vehicleId, date, odometer ?? null, resolved.names.join(', '), JSON.stringify(resolved.names), cost || 0, notes || null)
+    const { lastInsertRowid } = insert.run(
+      req.params.vehicleId, date, odometer ?? null, resolved.names.join(', '),
+      JSON.stringify(resolved.names), cost || 0, notes || null, tireSet
+    )
     setRecordItems(db, Number(lastInsertRowid), resolved.ids, resolved.names)
     return res.status(201).json(shape(db.prepare(`SELECT * FROM ${t} WHERE id = ?`).get(lastInsertRowid)))
   }
-  const { lastInsertRowid } = db.prepare(
-    `INSERT INTO ${t} (vehicle_id, date, odometer, description, items, cost, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(req.params.vehicleId, date, odometer ?? null, items.join(', '), JSON.stringify(items), cost || 0, notes || null)
+  const { lastInsertRowid } = insert.run(
+    req.params.vehicleId, date, odometer ?? null, items.join(', '), JSON.stringify(items), cost || 0, notes || null, tireSet
+  )
   res.status(201).json(shape(db.prepare(`SELECT * FROM ${t} WHERE id = ?`).get(lastInsertRowid)))
 })
 
@@ -122,8 +127,10 @@ router.patch('/:type/:id', (req, res) => {
     return res.json(db.prepare('SELECT * FROM odometer_records WHERE id = ?').get(row.id))
   }
 
-  for (const f of ['date', 'odometer', 'cost', 'notes']) {
-    if (req.body[f] !== undefined) db.prepare(`UPDATE ${t} SET ${f} = ? WHERE id = ?`).run(req.body[f], row.id)
+  for (const f of ['date', 'odometer', 'cost', 'notes', 'tire_set_id']) {
+    if (req.body[f] !== undefined) {
+      db.prepare(`UPDATE ${t} SET ${f} = ? WHERE id = ?`).run(req.body[f] === '' ? null : req.body[f], row.id)
+    }
   }
   if (ITEM_TYPES.has(type) && (req.body.items !== undefined || req.body.description !== undefined)) {
     const items = incomingItems(req.body)
@@ -154,9 +161,9 @@ router.post('/:type/:id/convert', (req, res) => {
   db.transaction(() => {
     const items = recordItems(row)
     const { lastInsertRowid } = db.prepare(`
-      INSERT INTO ${table(to)} (vehicle_id, date, odometer, description, items, cost, notes, date_added)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(row.vehicle_id, row.date, row.odometer, items.join(', '), JSON.stringify(items), row.cost, row.notes, row.date_added)
+      INSERT INTO ${table(to)} (vehicle_id, date, odometer, description, items, cost, notes, date_added, tire_set_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(row.vehicle_id, row.date, row.odometer, items.join(', '), JSON.stringify(items), row.cost, row.notes, row.date_added, row.tire_set_id)
     newId = Number(lastInsertRowid)
     if (to === 'service') {
       const resolved = resolveServiceTypes(db, items)

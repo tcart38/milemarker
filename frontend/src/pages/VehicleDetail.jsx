@@ -2,13 +2,15 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import {
   Plus, Trash2, Pencil, Paperclip, Gauge, Fuel, Wrench, Bell, LayoutDashboard,
-  ArrowUp, ArrowDown, ArrowUpDown, Table2, LineChart,
+  ArrowUp, ArrowDown, ArrowUpDown, Table2, LineChart, Disc3, ArrowLeft, Repeat,
 } from 'lucide-react'
 import {
   getVehicle, updateVehicle, deleteVehicle, getDashboard,
   getFuel, createFuel, updateFuel, deleteFuel,
   getRecords, createRecord, updateRecord, deleteRecord, convertRecord,
   getReminders, createReminder, updateReminder, deleteReminder,
+  getTires, createTireSet, updateTireSet, deleteTireSet,
+  createTireChange, deleteTireChange, createTread, deleteTread,
   uploadAttachment,
 } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
@@ -33,6 +35,7 @@ const TABS = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'fuel', label: 'Fuel', icon: Fuel },
   { key: 'records', label: 'Service', icon: Wrench },
+  { key: 'tires', label: 'Tires', icon: Disc3 },
   { key: 'odometer', label: 'Odometer', icon: Gauge },
   { key: 'reminder', label: 'Reminders', icon: Bell },
 ]
@@ -42,7 +45,7 @@ const LEGACY_TABS = { service: 'records', repair: 'records', upgrade: 'records' 
 
 const FAB_LABEL = {
   overview: 'Log fuel', fuel: 'Add fuel', records: 'Add record',
-  odometer: 'Add reading', reminder: 'Add reminder',
+  tires: 'Add tire set', odometer: 'Add reading', reminder: 'Add reminder',
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -129,16 +132,16 @@ export default function VehicleDetail() {
         <button onClick={() => setEditing(true)} className="btn-ghost text-slate-400 flex-shrink-0" title="Edit vehicle" aria-label="Edit vehicle"><Pencil size={15} /></button>
       </div>
 
-      {/* All five tabs fit a 375px screen: stacked icon+label on mobile, classic row on desktop. */}
+      {/* All six tabs fit a 375px screen: stacked icon+label on mobile, classic row on desktop. */}
       <div className="-mx-4 sm:mx-0 mb-5 border-b border-slate-200 dark:border-white/[0.06]">
-        <div className="grid grid-cols-5 sm:flex sm:gap-1">
+        <div className="grid grid-cols-6 sm:flex sm:gap-1">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               aria-current={tab === t.key ? 'page' : undefined}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-3 pt-2 pb-1.5 sm:py-2
-                          text-[11px] sm:text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-0.5 sm:px-3 pt-2 pb-1.5 sm:py-2
+                          text-[10px] sm:text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
                 tab === t.key
                   ? 'border-brand text-brand'
                   : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
@@ -155,11 +158,13 @@ export default function VehicleDetail() {
           vehicleId={id} vehicle={vehicle} money={money} distance={distance} units={vUnits}
           onOpenReminders={() => setTab('reminder')}
           onAddReminder={() => { setTab('reminder'); setPendingAdd(true) }}
+          onOpenTires={() => setTab('tires')}
           onVehicleChange={loadVehicle}
         />
       )}
       {tab === 'fuel' && <FuelTab vehicleId={id} money={money} units={vUnits} onChange={loadVehicle} {...tabProps} />}
       {tab === 'records' && <RecordsTab vehicleId={id} money={money} onChange={loadVehicle} initialFilter={recordsFilter} {...tabProps} />}
+      {tab === 'tires' && <TiresTab vehicleId={id} money={money} distance={distance} units={units} onChange={loadVehicle} {...tabProps} />}
       {tab === 'odometer' && <OdometerTab vehicleId={id} distance={distance} onChange={loadVehicle} {...tabProps} />}
       {tab === 'reminder' && <ReminderTab vehicleId={id} distance={distance} currentOdo={vehicle.odometer} {...tabProps} />}
 
@@ -638,14 +643,16 @@ function NotesCard({ vehicle, onChanged }) {
   )
 }
 
-function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders, onAddReminder, onVehicleChange }) {
+function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders, onAddReminder, onOpenTires, onVehicleChange }) {
   const isEv = units.volume === 'kWh'
   const [data, setData] = useState(null)
   const [reminders, setReminders] = useState([])
   const [fuel, setFuel] = useState(null)
   const [odo, setOdo] = useState(null)
+  const [tires, setTires] = useState(null)
   useEffect(() => { getDashboard(vehicleId).then(setData) }, [vehicleId])
   useEffect(() => { getReminders(vehicleId).then(setReminders) }, [vehicleId])
+  useEffect(() => { getTires(vehicleId).then(setTires).catch(() => setTires(null)) }, [vehicleId])
   useEffect(() => { getFuel(vehicleId).then(setFuel) }, [vehicleId])
   // Every record type can carry an odometer reading — the distance-driven trend
   // uses them all, not just dedicated odometer entries.
@@ -719,6 +726,41 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
           </div>
         )}
       </div>
+
+      {/* Tires — only once there's a set to talk about. */}
+      {tires && tires.sets.length > 0 && (
+        <div className="card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Disc3 size={15} className="text-slate-400" />
+            <p className="stat-label !mb-0">Tires</p>
+            <div className="flex-1" />
+            <button onClick={onOpenTires} className="text-xs text-brand hover:underline">Manage</button>
+          </div>
+          <div className="space-y-0.5">
+            {[...tires.sets].sort((a, b) => (b.is_mounted ? 1 : 0) - (a.is_mounted ? 1 : 0)).map((s) => {
+              const rot = rotationStatus(s, units)
+              return (
+                <button key={s.id} onClick={onOpenTires}
+                  className="w-full text-left px-2 py-2 -mx-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium truncate min-w-0">
+                      {s.name}
+                      {s.is_mounted && <span className="badge badge-service ml-1.5 font-normal">on the car</span>}
+                    </span>
+                    <span className="text-xs flex-shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                      {s.miles.toLocaleString()} {units.distance}
+                    </span>
+                  </div>
+                  <WearBar pct={s.wear_pct} />
+                  {rot && rot.pct != null && rot.pct >= 0.85 && (
+                    <p className={`text-[11px] mt-1 tabular-nums ${rot.cls}`}>{rot.text}</p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <TrendCard fuel={fuel} odo={odo} monthlySpend={data.monthly_spend} money={money} units={units} />
 
@@ -1121,6 +1163,15 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
   const [form, setForm] = useState(null) // null | { type } (add) | record with .type (edit)
   const [attach, setAttach] = useState(null)
   const defaultType = filter === 'all' ? 'service' : filter
+
+  // Names for the tire-set tags shown on rows; a save can mint a new set.
+  const [tireNames, setTireNames] = useState({})
+  const loadTires = useCallback(() => {
+    getTires(vehicleId)
+      .then((t) => setTireNames(Object.fromEntries(t.sets.map((s) => [s.id, s.name]))))
+      .catch(() => { /* tires are optional decoration here */ })
+  }, [vehicleId])
+  useEffect(() => { loadTires() }, [loadTires])
   usePendingAdd(pendingAdd, onAddConsumed, () => setForm((f) => f ?? { type: defaultType }))
   const [toDelete, setToDelete] = useState(null)
   const del = async (r) => { await deleteRecord(vehicleId, r.type, r.id); reload(); onChange?.() }
@@ -1148,7 +1199,10 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
         ) : shown.map((r) => (
           <div key={`${r.type}-${r.id}`} className="card p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium min-w-0 truncate">{r.description}</p>
+              <p className="text-sm font-medium min-w-0 truncate">
+                {r.description}
+                {tireNames[r.tire_set_id] && <span className="badge badge-not-due ml-1.5 font-normal">{tireNames[r.tire_set_id]}</span>}
+              </p>
               <span className="text-sm font-semibold tabular-nums flex-shrink-0">{money(r.cost)}</span>
             </div>
             <div className="flex items-center justify-between gap-2 mt-1">
@@ -1177,7 +1231,10 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
                 <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.date)}</td>
                 <td className="px-3 py-2"><span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span></td>
                 <td className="px-3 py-2 tabular-nums">{r.odometer != null ? r.odometer.toLocaleString() : '—'}</td>
-                <td className="px-3 py-2">{r.description}</td>
+                <td className="px-3 py-2">
+                  {r.description}
+                  {tireNames[r.tire_set_id] && <span className="badge badge-not-due ml-1.5 font-normal">{tireNames[r.tire_set_id]}</span>}
+                </td>
                 <td className="px-3 py-2 tabular-nums">{money(r.cost)}</td>
                 <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
@@ -1187,7 +1244,7 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
       </div>
       {form && (
         <CostRecordForm vehicleId={vehicleId} record={form.id ? form : null} initialType={form.type}
-          onClose={() => setForm(null)} onSaved={() => { setForm(null); reload(); onChange?.() }} />
+          onClose={() => setForm(null)} onSaved={() => { setForm(null); reload(); loadTires(); onChange?.() }} />
       )}
       {attach && (
         <AttachmentsModal vehicleId={vehicleId} recordType={attach.type} recordId={attach.id}
@@ -1204,6 +1261,10 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
   )
 }
 
+// Items that mean this record happened to a specific set of tires — used to
+// surface the tire picker only when it's relevant.
+const TIRE_ITEM = /tire|tyre|rotat|wheel|balanc|align|tread|stud|snow|winter|summer|changeover|swap/i
+
 function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
   const { serviceOptions, refreshServiceTypes } = useSettings()
   const [type, setType] = useState(record?.type || initialType || 'service')
@@ -1217,14 +1278,62 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
   const [error, setError] = useState(null)
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }))
 
+  // Tires: '' none · a set id · 'new' for a set created right here.
+  const [tires, setTires] = useState(null)
+  const [tireSet, setTireSet] = useState(record?.tire_set_id != null ? String(record.tire_set_id) : '')
+  const [newSet, setNewSet] = useState({ name: '', expected_miles: '' })
+  const [changeover, setChangeover] = useState(false)
+  const [touchedTires, setTouchedTires] = useState(!!record)
+  useEffect(() => { getTires(vehicleId).then(setTires).catch(() => setTires({ sets: [], mounted_set_id: null })) }, [vehicleId])
+
+  const tireish = f.items.some((i) => TIRE_ITEM.test(i))
+  const showTires = !!tires && (tireish || record?.tire_set_id != null)
+  const mountedSet = tires?.sets.find((s) => s.id === tires.mounted_set_id) || null
+  const chosenSetName = tireSet === 'new'
+    ? (newSet.name.trim() || 'The new set')
+    : tires?.sets.find((s) => String(s.id) === tireSet)?.name || 'This set'
+
+  // On a fresh tire-related record, assume the set that's on the car — that's
+  // what a rotation or a repair was done to.
+  useEffect(() => {
+    if (!tires || touchedTires || !tireish || tires.mounted_set_id == null) return
+    setTireSet(String(tires.mounted_set_id))
+  }, [tires, tireish, touchedTires])
+
+  // Picking a set that isn't the one currently on the car *is* a changeover;
+  // picking the mounted one is a rotation or a repair. Both stay overridable.
+  const pickSet = (v) => {
+    setTouchedTires(true)
+    setTireSet(v)
+    if (!tires) return
+    setChangeover(v === 'new' || (v !== '' && Number(v) !== tires.mounted_set_id))
+  }
+
   const save = async () => {
     if (f.items.length === 0) { setError('Add at least one item'); return }
-    setSaving(true); setError(null)
-    const body = {
-      date: f.date, odometer: f.odometer ? parseInt(f.odometer, 10) : null,
-      items: f.items, cost: f.cost ? parseFloat(f.cost) : 0, notes: f.notes,
+    const odometer = f.odometer ? parseInt(f.odometer, 10) : null
+    if (showTires && changeover && odometer == null) {
+      setError('A changeover needs an odometer reading — it is what the set’s mileage is measured from')
+      return
     }
+    if (showTires && tireSet === 'new' && !newSet.name.trim()) { setError('Name the new tire set'); return }
+    setSaving(true); setError(null)
     try {
+      // A brand-new set is created first so the record can point at it.
+      let setId = tireSet === '' ? null : tireSet === 'new' ? null : parseInt(tireSet, 10)
+      if (showTires && tireSet === 'new') {
+        const created = await createTireSet(vehicleId, {
+          name: newSet.name.trim(),
+          expected_miles: newSet.expected_miles === '' ? null : parseInt(newSet.expected_miles, 10),
+          purchase_date: f.date,
+        })
+        setId = created.id
+      }
+      const body = {
+        date: f.date, odometer, items: f.items,
+        cost: f.cost ? parseFloat(f.cost) : 0, notes: f.notes,
+        ...(showTires ? { tire_set_id: setId } : {}),
+      }
       // Changing the record's kind moves it to another table (new id) first.
       let targetId = record?.id
       if (record && type !== record.type) {
@@ -1232,6 +1341,11 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
         targetId = moved.id
       }
       const saved = record ? await updateRecord(vehicleId, type, targetId, body) : await createRecord(vehicleId, type, body)
+      // The swap itself is a separate event: the record says what was done, the
+      // changeover says which set is on the car from this odometer on.
+      if (showTires && changeover) {
+        await createTireChange(vehicleId, { set_id: setId, date: f.date, odometer })
+      }
       await uploadPending(vehicleId, type, record ? targetId : saved.id, pending)
       // The backend creates types for any new names; refresh the shared picker list.
       if (type === 'service' || record?.type === 'service') refreshServiceTypes()
@@ -1267,8 +1381,644 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
         <div><label className="label">Odometer</label><input value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
         <div><label className="label">Cost</label><input value={f.cost} onChange={set('cost')} inputMode="decimal" className="input" /></div>
       </div>
+
+      {showTires && (
+        <div className="border-t border-slate-200 dark:border-white/[0.06] pt-3">
+          <label className="label">Which tires?</label>
+          <select value={tireSet} onChange={(e) => pickSet(e.target.value)} className="input">
+            <option value="">Not tied to a set</option>
+            {tires.sets.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}{s.id === tires.mounted_set_id ? ' (on the car)' : ''}
+              </option>
+            ))}
+            <option value="new">+ New set of tires…</option>
+          </select>
+
+          {tireSet === 'new' && (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div>
+                <label className="label">Name</label>
+                <input value={newSet.name} onChange={(e) => setNewSet((s) => ({ ...s, name: e.target.value }))}
+                  className="input" placeholder="Summer — PS4S" />
+              </div>
+              <div>
+                <label className="label">Rated for</label>
+                <input value={newSet.expected_miles} onChange={(e) => setNewSet((s) => ({ ...s, expected_miles: e.target.value }))}
+                  inputMode="numeric" className="input" placeholder="40000" />
+              </div>
+            </div>
+          )}
+
+          {tireSet !== '' && (
+            <label className="flex items-center gap-2 text-sm mt-2">
+              <input type="checkbox" checked={changeover} onChange={(e) => setChangeover(e.target.checked)} className="accent-brand w-4 h-4" />
+              Changeover — this set goes on the car
+            </label>
+          )}
+          {/* Spelling out the set names beats describing the mechanism: the
+              sentence says exactly what saving will do. */}
+          <p className="text-[11px] text-slate-400 mt-1">
+            {tireSet === ''
+              ? 'Pick a set so a rotation or repair records which tires it was.'
+              : changeover
+                ? `${chosenSetName} starts counting miles at ${f.odometer ? Number(f.odometer).toLocaleString() : 'this odometer'}` +
+                  (mountedSet && String(mountedSet.id) !== tireSet ? `, and ${mountedSet.name} comes off.` : '.')
+                : mountedSet
+                  ? `Only recording which tires this was done to — ${mountedSet.name} stays on the car.`
+                  : 'Only recording which tires this was done to.'}
+          </p>
+        </div>
+      )}
+
       <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
       <RecordAttachments vehicleId={vehicleId} recordType={record?.type || type} recordId={record?.id} pending={pending} setPending={setPending} />
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </Modal>
+  )
+}
+
+/* ---------- Tires ----------
+
+   A tire set's mileage is never stored: the changeover timeline partitions the
+   odometer, so each set's total is the sum of the stints it was on the car for.
+   The backend does that math; everything here just presents it. */
+
+const TREAD_CORNERS = [
+  { k: 'lf', label: 'LF' }, { k: 'rf', label: 'RF' },
+  { k: 'lr', label: 'LR' }, { k: 'rr', label: 'RR' },
+]
+
+// Worn-in colour ramp, matching the reminder bars: fine → getting on → replace.
+const wearClass = (pct) =>
+  pct == null ? 'bg-slate-400' : pct >= 0.9 ? 'bg-red-500' : pct >= 0.75 ? 'bg-amber-500' : 'bg-emerald-500'
+
+function WearBar({ pct }) {
+  if (pct == null) return null
+  return (
+    <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+      <div className={`h-full rounded-full ${wearClass(pct)}`} style={{ width: `${Math.max(2, Math.round(pct * 100))}%` }} />
+    </div>
+  )
+}
+
+// How this set is doing on rotations — null when it doesn't track them.
+function rotationStatus(s, u) {
+  if (!s.rotate_miles) return null
+  if (s.miles_since_rotation == null) {
+    return { text: 'no rotation logged', cls: 'text-amber-500', pct: null }
+  }
+  const pct = s.miles_since_rotation / s.rotate_miles
+  const left = s.rotate_miles - s.miles_since_rotation
+  return {
+    text: left < 0
+      ? `rotation ${Math.abs(left).toLocaleString()} ${u.distance} overdue`
+      : `${left.toLocaleString()} ${u.distance} to rotation`,
+    cls: pct >= 1 ? 'text-red-500 font-medium' : pct >= 0.85 ? 'text-amber-500 font-medium' : 'text-slate-500 dark:text-slate-400',
+    pct: Math.min(1, pct),
+  }
+}
+
+function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onAddConsumed }) {
+  const [data, setData] = useState(null)
+  const [setForm, setSetForm] = useState(null)      // null | {} (add) | set (edit)
+  const [changeForm, setChangeForm] = useState(false)
+  const [openSetId, setOpenSetId] = useState(null)  // drilled-into set
+
+  const load = useCallback(() => getTires(vehicleId).then(setData), [vehicleId])
+  useEffect(() => { load() }, [load])
+  usePendingAdd(pendingAdd, onAddConsumed, () => setSetForm((f) => f ?? {}))
+
+  // Every tire write returns the whole recomputed picture, so saving is one round trip.
+  const applied = (fresh) => { setData(fresh); onChange?.() }
+
+  if (!data) return <div className="text-slate-400 text-sm">Loading…</div>
+
+  const open = data.sets.find((s) => s.id === openSetId)
+  if (open) {
+    return (
+      <TireSetDetail
+        vehicleId={vehicleId} set={open} odometer={data.odometer}
+        money={money} distance={distance} units={units}
+        onBack={() => setOpenSetId(null)} onChanged={applied}
+        onGone={() => { setOpenSetId(null); load(); onChange?.() }}
+      />
+    )
+  }
+
+  const mounted = data.sets.find((s) => s.is_mounted) || null
+  const garage = data.sets.filter((s) => !s.is_mounted && !s.is_retired)
+  const retired = data.sets.filter((s) => !s.is_mounted && s.is_retired)
+
+  return (
+    <TabShell title="Tire sets" addLabel="Add tire set" onAdd={() => setSetForm({})}>
+      {data.sets.length === 0 ? (
+        <EmptyCard
+          label="No tire sets yet. Add one for each physical set you own — the miles on each are worked out from your changeovers."
+          actionLabel="Add a tire set"
+          onAction={() => setSetForm({})}
+        />
+      ) : (
+        <div className="space-y-5">
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="stat-label !mb-0">On the car</p>
+              <div className="flex-1" />
+              <button onClick={() => setChangeForm(true)} className="btn-ghost text-xs">
+                <Repeat size={13} /> Log changeover
+              </button>
+            </div>
+            {mounted ? (
+              <TireSetCard s={mounted} money={money} units={units} onOpen={() => setOpenSetId(mounted.id)} />
+            ) : (
+              <div className="card p-4 text-sm text-slate-400">
+                No set is marked as mounted.{' '}
+                <button onClick={() => setChangeForm(true)} className="text-brand hover:underline">Log a changeover</button>{' '}
+                to start counting miles.
+              </div>
+            )}
+          </section>
+
+          {garage.length > 0 && (
+            <section>
+              <p className="stat-label mb-2">In the garage</p>
+              <div className="space-y-2">
+                {garage.map((s) => <TireSetCard key={s.id} s={s} money={money} units={units} onOpen={() => setOpenSetId(s.id)} />)}
+              </div>
+            </section>
+          )}
+
+          {retired.length > 0 && (
+            <section>
+              <p className="stat-label mb-2">Retired</p>
+              <div className="space-y-2">
+                {retired.map((s) => <TireSetCard key={s.id} s={s} money={money} units={units} onOpen={() => setOpenSetId(s.id)} />)}
+              </div>
+            </section>
+          )}
+
+          {data.changes.length > 0 && (
+            <section>
+              <p className="stat-label mb-2">Changeover history</p>
+              <div className="card divide-y divide-slate-100 dark:divide-white/[0.04]">
+                {data.changes.map((c) => (
+                  <div key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <span className="tabular-nums text-slate-500 dark:text-slate-400 w-24 flex-shrink-0">{fmtDate(c.date)}</span>
+                    <span className="min-w-0 truncate flex-1">
+                      {c.set_name || <span className="text-slate-400 italic">nothing mounted</span>}
+                    </span>
+                    <span className="tabular-nums text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                      at {c.odometer.toLocaleString()}
+                      {c.miles != null && ` · ran ${c.miles.toLocaleString()} ${units.distance}${c.is_current ? ' so far' : ''}`}
+                    </span>
+                    <button
+                      onClick={async () => applied(await deleteTireChange(vehicleId, c.id))}
+                      className="text-slate-400 hover:text-red-500 p-1 flex-shrink-0"
+                      title="Delete changeover" aria-label="Delete changeover"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                Each changeover runs until the next one — the newest counts up to your current odometer.
+              </p>
+            </section>
+          )}
+        </div>
+      )}
+
+      {setForm && (
+        <TireSetForm
+          vehicleId={vehicleId} set={setForm.id ? setForm : null} odometer={data.odometer} units={units}
+          onClose={() => setSetForm(null)} onSaved={(fresh) => { setSetForm(null); applied(fresh) }}
+        />
+      )}
+      {changeForm && (
+        <ChangeoverForm
+          vehicleId={vehicleId} sets={data.sets} mountedId={data.mounted_set_id} odometer={data.odometer}
+          onClose={() => setChangeForm(false)} onSaved={(fresh) => { setChangeForm(false); applied(fresh) }}
+        />
+      )}
+    </TabShell>
+  )
+}
+
+function TireSetCard({ s, money, units, onOpen }) {
+  const rot = rotationStatus(s, units)
+  return (
+    <button onClick={onOpen} className="card p-3 w-full text-left hover:border-brand/40 transition-colors">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-medium truncate min-w-0">{s.name}</span>
+        <span className="text-sm font-semibold tabular-nums flex-shrink-0">
+          {s.miles.toLocaleString()} {units.distance}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 mt-0.5">
+        <span className="text-xs text-slate-500 dark:text-slate-400 truncate min-w-0">
+          {s.size && `${s.size} · `}
+          {s.is_mounted && s.mounted_since
+            ? `on since ${fmtDate(s.mounted_since.date)} at ${s.mounted_since.odometer.toLocaleString()}`
+            : s.last_change
+              ? `off since ${fmtDate(s.last_change.date)}`
+              : 'never mounted'}
+        </span>
+        {rot && <span className={`text-xs flex-shrink-0 tabular-nums ${rot.cls}`}>{rot.text}</span>}
+      </div>
+      {(s.expected_miles > 0 || s.baseline_miles > 0) && (
+        <>
+          {s.expected_miles > 0 && <WearBar pct={s.wear_pct} />}
+          <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
+            {[
+              s.expected_miles > 0 && `${Math.round((s.wear_pct ?? 0) * 100)}% of ${s.expected_miles.toLocaleString()} ${units.distance}`,
+              s.baseline_miles > 0 && `incl. ${s.baseline_miles.toLocaleString()} before tracking`,
+              s.cost_per_1000 != null && `${money(s.cost_per_1000)}/1,000 ${units.distance}`,
+            ].filter(Boolean).join(' · ')}
+          </p>
+        </>
+      )}
+    </button>
+  )
+}
+
+function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, onBack, onChanged, onGone }) {
+  const [editing, setEditing] = useState(false)
+  const [treadForm, setTreadForm] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const rot = rotationStatus(s, units)
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <button onClick={onBack} className="btn-ghost text-xs"><ArrowLeft size={14} /> Tire sets</button>
+        <div className="flex-1" />
+        <button onClick={() => setEditing(true)} className="btn-ghost text-xs"><Pencil size={13} /> Edit</button>
+      </div>
+
+      <h2 className="text-base font-semibold mb-0.5">{s.name}</h2>
+      <p className="text-xs text-slate-400 mb-4">
+        {[s.size, s.purchase_date && `bought ${fmtDate(s.purchase_date)}`, s.cost != null && money(s.cost)].filter(Boolean).join(' · ') || 'No purchase details'}
+      </p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <Stat label={`${units.distance === 'mi' ? 'Miles' : 'Distance'} on set`} value={`${s.miles.toLocaleString()} ${units.distance}`} />
+        <Stat label="Status" value={s.is_mounted ? 'On the car' : s.is_retired ? 'Retired' : 'In the garage'} />
+        <Stat label="Life used" value={s.wear_pct != null ? `${Math.round(s.wear_pct * 100)}%` : '—'} />
+        <Stat label={`Cost / 1,000 ${units.distance}`} value={s.cost_per_1000 != null ? money(s.cost_per_1000) : '—'} />
+      </div>
+
+      {s.expected_miles > 0 && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="stat-label !mb-0">Tread life</p>
+            <p className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+              {s.miles.toLocaleString()} of {s.expected_miles.toLocaleString()} {units.distance}
+              {s.miles < s.expected_miles && ` · ${(s.expected_miles - s.miles).toLocaleString()} left`}
+            </p>
+          </div>
+          <WearBar pct={s.wear_pct} />
+          {s.baseline_miles > 0 && (
+            <p className="text-[11px] text-slate-400 mt-1.5 tabular-nums">
+              {s.baseline_miles.toLocaleString()} estimated before tracking + {s.tracked_miles.toLocaleString()} logged since.
+            </p>
+          )}
+        </div>
+      )}
+
+      {rot && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="stat-label !mb-0">Rotation</p>
+            <p className={`text-xs tabular-nums ${rot.cls}`}>{rot.text}</p>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {s.last_rotation
+              ? `Last rotated ${fmtDate(s.last_rotation.date)}${s.last_rotation.odometer != null ? ` at ${s.last_rotation.odometer.toLocaleString()}` : ''} — ${s.miles_since_rotation.toLocaleString()} ${units.distance} on this set since.`
+              : `No rotation recorded on this set yet. Log a service with a “rotation” item and tag it to this set.`}
+          </p>
+        </div>
+      )}
+
+      <div className="mb-5">
+        <p className="stat-label mb-2">Time on the car</p>
+        {s.records.length === 0 && !s.last_change ? (
+          <div className="card p-4 text-sm text-slate-400">Never mounted — log a changeover to start counting.</div>
+        ) : (
+          <div className="card p-4 text-sm text-slate-600 dark:text-slate-300">
+            {s.is_mounted && s.mounted_since
+              ? <>On the car since {fmtDate(s.mounted_since.date)} at {s.mounted_since.odometer.toLocaleString()} — {(odometer - s.mounted_since.odometer).toLocaleString()} {units.distance} this stint.</>
+              : s.last_change
+                ? <>Last came off after {fmtDate(s.last_change.date)}, mounted at {s.last_change.odometer.toLocaleString()}.</>
+                : 'Never mounted.'}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-5">
+        <p className="stat-label mb-2">Services on this set</p>
+        {s.records.length === 0 ? (
+          <div className="card p-4 text-sm text-slate-400">
+            Nothing tagged to this set yet — tag a rotation, balance or repair to it from the Service tab.
+          </div>
+        ) : (
+          <div className="card divide-y divide-slate-100 dark:divide-white/[0.04]">
+            {s.records.map((r) => (
+              <div key={`${r.type}-${r.id}`} className="flex items-center gap-3 px-3 py-2 text-sm">
+                <span className="tabular-nums text-slate-500 dark:text-slate-400 w-24 flex-shrink-0">{fmtDate(r.date)}</span>
+                <span className="min-w-0 truncate flex-1">
+                  {r.description}
+                  {r.is_rotation && <span className="badge badge-not-due ml-1.5">rotation</span>}
+                </span>
+                <span className="tabular-nums text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                  {r.odometer != null && `${r.odometer.toLocaleString()} · `}{money(r.cost)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-2">
+          <p className="stat-label !mb-0">Tread depth</p>
+          <div className="flex-1" />
+          <button onClick={() => setTreadForm(true)} className="btn-ghost text-xs"><Plus size={13} /> Add reading</button>
+        </div>
+        {s.treads.length === 0 ? (
+          <div className="card p-4 text-sm text-slate-400">No measurements yet.</div>
+        ) : (
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b border-slate-200 dark:border-white/[0.06] text-[11px] uppercase tracking-wider text-slate-400">
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">Odometer</th>
+                  {TREAD_CORNERS.map((c) => <th key={c.k} className="px-3 py-2 font-medium">{c.label}</th>)}
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.treads.map((t) => (
+                  <tr key={t.id} className="border-b border-slate-100 dark:border-white/[0.04] last:border-0">
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(t.date)}</td>
+                    <td className="px-3 py-2 tabular-nums">{t.odometer != null ? t.odometer.toLocaleString() : '—'}</td>
+                    {TREAD_CORNERS.map((c) => (
+                      <td key={c.k} className="px-3 py-2 tabular-nums">{t[c.k] != null ? t[c.k] : '—'}</td>
+                    ))}
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={async () => onChanged(await deleteTread(vehicleId, t.id))}
+                        className="text-slate-400 hover:text-red-500 p-1" title="Delete reading" aria-label="Delete reading"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-[11px] text-slate-400 mt-1.5">Depths in 32nds of an inch (or mm — whatever you measure in). New tires are around 10–11/32".</p>
+      </div>
+
+      {s.notes && (
+        <div className="card p-4 mb-5">
+          <p className="stat-label mb-1">Notes</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{s.notes}</p>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button onClick={() => setConfirmDelete(true)} className="btn-ghost text-xs text-red-500 hover:text-red-500">
+          <Trash2 size={13} /> Delete this set…
+        </button>
+      </div>
+
+      {editing && (
+        <TireSetForm
+          vehicleId={vehicleId} set={s} odometer={odometer} units={units}
+          onClose={() => setEditing(false)} onSaved={(fresh) => { setEditing(false); onChanged(fresh) }}
+        />
+      )}
+      {treadForm && (
+        <TreadForm
+          vehicleId={vehicleId} setId={s.id} odometer={odometer}
+          onClose={() => setTreadForm(false)} onSaved={(fresh) => { setTreadForm(false); onChanged(fresh) }}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`Delete “${s.name}”? Its changeovers and tread readings go with it, and any records tagged to it lose the tag (the records themselves stay).`}
+          onConfirm={async () => { await deleteTireSet(vehicleId, s.id); setConfirmDelete(false); onGone() }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function TireSetForm({ vehicleId, set, odometer, units, onClose, onSaved }) {
+  const [f, setF] = useState(() => set ? {
+    name: set.name, size: set.size || '', purchase_date: set.purchase_date || '',
+    cost: set.cost != null ? String(set.cost) : '',
+    expected_miles: set.expected_miles != null ? String(set.expected_miles) : '',
+    rotate_miles: set.rotate_miles != null ? String(set.rotate_miles) : '',
+    baseline_miles: set.baseline_miles != null ? String(set.baseline_miles) : '',
+    notes: set.notes || '', is_retired: !!set.is_retired,
+  } : {
+    name: '', size: '', purchase_date: '', cost: '', expected_miles: '', rotate_miles: '',
+    baseline_miles: '', notes: '', is_retired: false,
+  })
+  const expected = parseInt(f.expected_miles, 10) || 0
+  // New sets are usually going straight onto the car.
+  const [mount, setMount] = useState(!set)
+  const [mountOdo, setMountOdo] = useState(odometer != null ? String(odometer) : '')
+  const [mountDate, setMountDate] = useState(today())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const setV = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }))
+
+  const save = async () => {
+    if (!f.name.trim()) { setError('Give the set a name'); return }
+    setSaving(true); setError(null)
+    const body = {
+      name: f.name.trim(), size: f.size.trim() || null, purchase_date: f.purchase_date || null,
+      cost: f.cost === '' ? null : parseFloat(f.cost),
+      expected_miles: f.expected_miles === '' ? null : parseInt(f.expected_miles, 10),
+      rotate_miles: f.rotate_miles === '' ? null : parseInt(f.rotate_miles, 10),
+      baseline_miles: f.baseline_miles === '' ? null : parseInt(f.baseline_miles, 10),
+      notes: f.notes.trim() || null, is_retired: f.is_retired,
+    }
+    try {
+      if (set) onSaved(await updateTireSet(vehicleId, set.id, body))
+      else onSaved(await createTireSet(vehicleId, {
+        ...body,
+        ...(mount && mountOdo !== '' ? { mount_odometer: parseInt(mountOdo, 10), mount_date: mountDate } : {}),
+      }))
+    } catch (err) { setError(err.message); setSaving(false) }
+  }
+
+  return (
+    <Modal title={set ? 'Edit tire set' : 'Add tire set'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
+      <div>
+        <label className="label">Name</label>
+        <input value={f.name} onChange={setV('name')} className="input" placeholder="e.g. Winter — Blizzak WS90" autoFocus={!set} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="label">Size (optional)</label><input value={f.size} onChange={setV('size')} className="input" placeholder="225/60R18" /></div>
+        <div><label className="label">Bought on</label><input type="date" value={f.purchase_date} onChange={setV('purchase_date')} className="input" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Cost</label>
+          <input value={f.cost} onChange={setV('cost')} inputMode="decimal" className="input" />
+        </div>
+        <div>
+          <label className="label">Rated for ({units.distance})</label>
+          <input value={f.expected_miles} onChange={setV('expected_miles')} inputMode="numeric" className="input" placeholder="40000" />
+        </div>
+      </div>
+      <div>
+        <label className="label">Rotate every ({units.distance}, optional)</label>
+        <input value={f.rotate_miles} onChange={setV('rotate_miles')} inputMode="numeric" className="input" placeholder="6000" />
+        <p className="text-[11px] text-slate-400 mt-1">
+          Counts only while this set is on the car, from the last service tagged to it with a “rotation” item.
+        </p>
+      </div>
+      <div>
+        <label className="label">Already on them ({units.distance}, optional)</label>
+        <input value={f.baseline_miles} onChange={setV('baseline_miles')} inputMode="numeric" className="input" placeholder="0" />
+        {/* Starting to track a half-worn set is the normal case, not the
+            exception — so make the estimate a two-tap job. */}
+        {expected > 0 && (
+          <div className="flex gap-1.5 mt-1.5">
+            {[[0.25, '¼ used'], [0.5, 'half used'], [0.75, '¾ used']].map(([frac, label]) => (
+              <button key={frac} type="button"
+                onClick={() => setF((s) => ({ ...s, baseline_miles: String(Math.round(expected * frac)) }))}
+                className="chip chip-off text-[11px]">
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-slate-400 mt-1">
+          For tires you were already running before you started tracking. A rough guess is fine — everything from
+          here on gets added to it.
+        </p>
+      </div>
+      <div><label className="label">Notes</label><input value={f.notes} onChange={setV('notes')} className="input" placeholder="Stored in the garage, DOT 2419…" /></div>
+
+      {set ? (
+        <label className="flex items-center gap-2 text-sm py-1">
+          <input type="checkbox" checked={f.is_retired} onChange={(e) => setF((s) => ({ ...s, is_retired: e.target.checked }))} className="accent-brand w-4 h-4" />
+          Retired
+          <span className="text-xs text-slate-400">— worn out or sold; keeps its history</span>
+        </label>
+      ) : (
+        <div className="border-t border-slate-200 dark:border-white/[0.06] pt-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={mount} onChange={(e) => setMount(e.target.checked)} className="accent-brand w-4 h-4" />
+            Put this set on the car now
+          </label>
+          {mount && (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div><label className="label">Fitted on</label><input type="date" value={mountDate} onChange={(e) => setMountDate(e.target.value)} className="input" /></div>
+              <div><label className="label">At odometer</label><input value={mountOdo} onChange={(e) => setMountOdo(e.target.value)} inputMode="numeric" className="input" /></div>
+            </div>
+          )}
+          <p className="text-[11px] text-slate-400 mt-1">
+            {mount ? 'Miles start counting from this reading.' : 'Leave off for a set you already own but that is not on the car — log a changeover when it goes on.'}
+          </p>
+        </div>
+      )}
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </Modal>
+  )
+}
+
+function ChangeoverForm({ vehicleId, sets, mountedId, odometer, onClose, onSaved }) {
+  // Default to whatever is not currently on the car — the usual swap.
+  const [setId, setSetId] = useState(() => {
+    const other = sets.find((s) => !s.is_mounted && !s.is_retired)
+    return other ? String(other.id) : ''
+  })
+  const [date, setDate] = useState(today())
+  const [odo, setOdo] = useState(odometer != null ? String(odometer) : '')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  const save = async () => {
+    if (odo === '') { setError('An odometer reading is required — it is what the mileage is measured from'); return }
+    setSaving(true); setError(null)
+    try {
+      onSaved(await createTireChange(vehicleId, {
+        set_id: setId === '' ? null : parseInt(setId, 10),
+        date, odometer: parseInt(odo, 10), notes: notes.trim() || null,
+      }))
+    } catch (err) { setError(err.message); setSaving(false) }
+  }
+
+  return (
+    <Modal title="Log a changeover" onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
+      <div>
+        <label className="label">Which set went on?</label>
+        <select value={setId} onChange={(e) => setSetId(e.target.value)} className="input">
+          {sets.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}{s.id === mountedId ? ' (on now)' : ''}</option>
+          ))}
+          <option value="">Nothing / untracked tires</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="label">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input" /></div>
+        <div><label className="label">Odometer</label><input value={odo} onChange={(e) => setOdo(e.target.value)} inputMode="numeric" className="input" /></div>
+      </div>
+      <div><label className="label">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" /></div>
+      <p className="text-[11px] text-slate-400">
+        The set that was on until now stops counting here, and this one starts. Logging an old swap you forgot works
+        the same way — the totals re-sort themselves.
+      </p>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </Modal>
+  )
+}
+
+function TreadForm({ vehicleId, setId, odometer, onClose, onSaved }) {
+  const [f, setF] = useState({ date: today(), odometer: odometer != null ? String(odometer) : '', lf: '', rf: '', lr: '', rr: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }))
+
+  const save = async () => {
+    setSaving(true); setError(null)
+    try {
+      onSaved(await createTread(vehicleId, setId, {
+        date: f.date, odometer: f.odometer === '' ? null : parseInt(f.odometer, 10),
+        ...Object.fromEntries(TREAD_CORNERS.map((c) => [c.k, f[c.k] === '' ? null : parseFloat(f[c.k])])),
+        notes: f.notes.trim() || null,
+      }))
+    } catch (err) { setError(err.message); setSaving(false) }
+  }
+
+  return (
+    <Modal title="Add tread reading" onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
+        <div><label className="label">Odometer</label><input value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {TREAD_CORNERS.map((c) => (
+          <div key={c.k}>
+            <label className="label">{c.label}</label>
+            <input value={f[c.k]} onChange={set(c.k)} inputMode="decimal" className="input" placeholder="—" />
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-400">Left/right front and rear. Fill in as many as you measured.</p>
+      <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
       {error && <p className="text-xs text-red-500">{error}</p>}
     </Modal>
   )
