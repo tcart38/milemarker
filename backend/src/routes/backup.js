@@ -7,7 +7,7 @@ import { getDb, closeDb, initDb } from '../db/index.js'
 import { createZip, readZip } from '../lib/zip.js'
 
 const router = Router()
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 1024 * 1024 * 1024 } })
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxUploadBytes } })
 
 // GET /api/backup/download — zip of the database plus every uploaded attachment.
 router.get('/download', async (req, res) => {

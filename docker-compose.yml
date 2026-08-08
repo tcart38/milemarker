@@ -12,6 +12,8 @@ services:
       NODE_ENV: production
       PORT: 3002
       DATA_DIR: /data
+      MAX_UPLOAD_SIZE_MB: 1024
+      MAX_IMPORT_FILES: 100000
     restart: unless-stopped
 
 volumes:

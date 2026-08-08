@@ -8,7 +8,7 @@ import { readLiteDb } from '../lib/litedb.js'
 import { resolveServiceTypes, setRecordItems } from './service-types.js'
 
 const router = Router()
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 2000 } })
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxUploadBytes, files: config.maxImportFiles } })
 
 const dateStr = (d) => (d instanceof Date && !isNaN(d) ? d.toISOString().slice(0, 10) : null)
 
