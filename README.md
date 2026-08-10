@@ -67,6 +67,8 @@ Single container, no compose needed:
 | `DATA_DIR` | `/data` | Writable folder for the SQLite database and uploads — persist this |
 | `ALLOWED_HOSTS` | *(empty)* | Extra hostnames allowed in the `Host` header, comma-separated (see Security) |
 | `PUID` / `PGID` | `1000` / `1000` | User/group the app runs as; `/data` is chowned to this at startup |
+| `MAX_UPLOAD_SIZE_MB` | `1024` | Max size of a single imported/restored file in MB (raise it if a LubeLogger photo or the database itself trips "File too large") |
+| `MAX_IMPORT_FILES` | `100000` | Max number of files in one LubeLogger import |
 | `NODE_ENV` | — | `production` in Docker; enables serving the built frontend |
 
 Units, currency, service types, and theme are configured in the app under **Settings**.
