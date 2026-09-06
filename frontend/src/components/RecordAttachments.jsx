@@ -39,8 +39,8 @@ export default function RecordAttachments({ vehicleId, recordType, recordId, pen
   const removeExisting = async (id) => { await deleteAttachment(id); load() }
 
   const Thumb = ({ name, url, onClick }) => (
-    <button type="button" onClick={onClick} className="w-9 h-9 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-      {isImage(name) && url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <FileText size={15} className="text-slate-500" />}
+    <button type="button" onClick={onClick} className="w-9 h-9 rounded bg-inset flex items-center justify-center overflow-hidden flex-shrink-0">
+      {isImage(name) && url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <FileText size={15} className="text-secondary" />}
     </button>
   )
 
@@ -52,14 +52,14 @@ export default function RecordAttachments({ vehicleId, recordType, recordId, pen
           <div key={`e${a.id}`} className="flex items-center gap-2">
             <Thumb name={a.filename} url={attachmentUrl(a.id)} onClick={() => setView({ attachment: a })} />
             <span className="text-sm truncate flex-1">{a.filename}</span>
-            <button type="button" onClick={() => setToDelete(a)} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={13} /></button>
+            <button type="button" onClick={() => setToDelete(a)} className="text-secondary hover:text-bad p-1"><Trash2 size={13} /></button>
           </div>
         ))}
         {pending.map((f, i) => (
           <div key={`p${i}`} className="flex items-center gap-2">
             <Thumb name={f.name} url={previews[i]} onClick={() => setView({ attachment: { filename: f.name }, src: previews[i] })} />
-            <span className="text-sm truncate flex-1">{f.name} <span className="text-[11px] text-slate-400">· pending</span></span>
-            <button type="button" onClick={() => removePending(i)} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={13} /></button>
+            <span className="text-sm truncate flex-1">{f.name} <span className="text-xs text-tertiary">· pending</span></span>
+            <button type="button" onClick={() => removePending(i)} className="text-secondary hover:text-bad p-1"><Trash2 size={13} /></button>
           </div>
         ))}
       </div>
@@ -69,10 +69,10 @@ export default function RecordAttachments({ vehicleId, recordType, recordId, pen
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         className={`mt-1.5 flex items-center justify-center gap-1.5 border-2 border-dashed rounded-lg py-2.5 text-xs cursor-pointer transition-colors ${
-          dragging
-            ? 'border-brand bg-brand/5 text-brand'
-            : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-brand hover:text-brand'
-        }`}
+ dragging
+ ? 'border-accent bg-accent/5 text-accent'
+ : 'border-hairline/50 text-secondary hover:border-accent hover:text-accent'
+ }`}
       >
         <Paperclip size={13} /> {dragging ? 'Drop to attach' : <>Drop files or <span className="font-medium">attach receipt</span></>}
       </div>

@@ -27,15 +27,15 @@ export default function Combobox({ value, onChange, options = [], placeholder, a
         placeholder={placeholder}
         className="input pr-8"
       />
-      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none" />
       {open && filtered.length > 0 && (
-        <div className="absolute z-30 left-0 right-0 mt-1 card p-1 max-h-52 overflow-y-auto shadow-xl">
+        <div className="absolute z-30 left-0 right-0 mt-1.5 pop p-1.5 max-h-56 overflow-y-auto animate-pop">
           {filtered.map((o) => (
             <button
               key={o}
               type="button"
               onClick={() => { onChange(o); setOpen(false) }}
-              className="w-full text-left px-2.5 py-1.5 rounded-md text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+              className="w-full text-left px-2.5 py-1.5 rounded-md text-sm hover:bg-wash/[0.06] transition-colors"
             >
               {o}
             </button>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react
 import {
   Plus, Trash2, Pencil, Paperclip, Gauge, Fuel, Wrench, Bell, LayoutDashboard,
   ArrowUp, ArrowDown, ArrowUpDown, Table2, LineChart, Disc3, ArrowLeft, Repeat,
+  ChevronRight, TrendingUp, CircleDollarSign, Layers, Rows3,
 } from 'lucide-react'
 import {
   getVehicle, updateVehicle, deleteVehicle, getDashboard,
@@ -20,7 +21,8 @@ import ItemsInput from '../components/ItemsInput.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import AttachmentsModal from '../components/AttachmentsModal.jsx'
 import RecordAttachments from '../components/RecordAttachments.jsx'
-import TrendChart, { ChartTable } from '../components/TrendChart.jsx'
+import TrendChart, { ChartTable, OverlayChart } from '../components/TrendChart.jsx'
+import { Bar } from '../components/Gauge.jsx'
 import { PRESETS } from '../presets.js'
 import { vehicleTitle } from '../vehicles.js'
 
@@ -58,7 +60,7 @@ const byRecency = (a, b) =>
 export default function VehicleDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { setCrumb } = useOutletContext()
+  const { setCrumb, setNav } = useOutletContext()
   const { money, distance, units } = useSettings()
   const [params, setParams] = useSearchParams()
   const [vehicle, setVehicle] = useState(null)
@@ -77,12 +79,14 @@ export default function VehicleDetail() {
   const tab = LEGACY_TABS[rawTab] || (TABS.some((t) => t.key === rawTab) ? rawTab : 'overview')
   const recordsFilter = RECORD_TYPES.includes(rawTab) ? rawTab : 'all'
 
-  const setTab = (key) => {
-    const p = new URLSearchParams(params)
-    if (key === 'overview') p.delete('tab')
-    else p.set('tab', key)
-    setParams(p, { replace: true })
-  }
+  const setTab = useCallback((key) => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev)
+      if (key === 'overview') p.delete('tab')
+      else p.set('tab', key)
+      return p
+    }, { replace: true })
+  }, [setParams])
 
   // ?add=1 (garage quick action, PWA shortcut) opens the add form for the linked tab.
   const [pendingAdd, setPendingAdd] = useState(() => params.get('add') === '1')
@@ -107,7 +111,18 @@ export default function VehicleDetail() {
     return () => setCrumb(null)
   }, [vehicle, setCrumb])
 
-  if (!vehicle) return <div className="p-6 text-slate-400">Loading…</div>
+  // Hand the tabs to the shell so they can render as the desktop sidebar. The
+  // segmented control below is the same list, shown only under lg.
+  useEffect(() => {
+    setNav({
+      items: TABS.map((t) => ({ ...t, label: t.key === 'fuel' && isEv ? 'Charging' : t.label })),
+      active: tab,
+      onSelect: setTab,
+    })
+    return () => setNav(null)
+  }, [tab, isEv, setNav, setTab])
+
+  if (!vehicle) return <div className="p-6 text-tertiary">Loading…</div>
 
   const fab = () => {
     if (tab === 'overview') setTab('fuel')
@@ -118,33 +133,37 @@ export default function VehicleDetail() {
 
   return (
     <div className="p-4 sm:p-6 pb-28 sm:pb-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-5 min-w-0">
-        <h1 className="text-xl font-semibold truncate min-w-0">{vehicleTitle(vehicle)}</h1>
-        <span className="badge badge-not-due flex-shrink-0"><Gauge size={12} /> {distance(vehicle.odometer)}</span>
-        {!!vehicle.is_archived && (
-          <span className="badge badge-due-soon flex-shrink-0">Sold{vehicle.sold_date ? ` ${fmtDate(vehicle.sold_date)}` : ''}</span>
-        )}
-        <div className="flex-1" />
-        <button onClick={() => setShowDocs(true)} className="btn-ghost text-slate-400 flex-shrink-0" title="Photos & documents" aria-label="Photos & documents"><Paperclip size={15} /></button>
-        <button onClick={() => setEditing(true)} className="btn-ghost text-slate-400 flex-shrink-0" title="Edit vehicle" aria-label="Edit vehicle"><Pencil size={15} /></button>
+      <div className="flex items-center gap-3 mb-4 min-w-0">
+        <div className="min-w-0 flex-1">
+          <h1 className="title-lg truncate">{vehicleTitle(vehicle)}</h1>
+          <p className="text-sm text-secondary mt-0.5 flex items-center gap-1.5 num">
+            <Gauge size={13} className="text-tertiary flex-shrink-0" />
+            {distance(vehicle.odometer)}
+            {!!vehicle.is_archived && (
+              <span className="badge badge-due-soon ml-1">
+                Sold{vehicle.sold_date ? ` ${fmtDate(vehicle.sold_date)}` : ''}
+              </span>
+            )}
+          </p>
+        </div>
+        <button onClick={() => setShowDocs(true)} className="btn-icon flex-shrink-0" title="Photos & documents" aria-label="Photos & documents"><Paperclip size={16} /></button>
+        <button onClick={() => setEditing(true)} className="btn-icon flex-shrink-0" title="Edit vehicle" aria-label="Edit vehicle"><Pencil size={16} /></button>
       </div>
 
-      {/* All six tabs fit a 375px screen: stacked icon+label on mobile, classic row on desktop. */}
-      <div className="-mx-4 sm:mx-0 mb-5 border-b border-slate-200 dark:border-white/[0.06]">
-        <div className="grid grid-cols-6 sm:flex sm:gap-1">
+      {/* Apple's segmented control. All six fit a 375px screen once the labels
+          drop to icons-plus-text at the smallest size; it scrolls if they don't. */}
+      <div className="lg:hidden mb-5 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto no-scrollbar">
+        <div className="segmented w-full min-w-max sm:w-auto sm:min-w-0" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              aria-current={tab === t.key ? 'page' : undefined}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-0.5 sm:px-3 pt-2 pb-1.5 sm:py-2
-                          text-[10px] sm:text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-                tab === t.key
-                  ? 'border-brand text-brand'
-                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-              }`}
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`segment flex-1 sm:flex-none sm:px-4 ${tab === t.key ? 'segment-on' : ''}`}
             >
-              <t.icon size={16} /> {t.key === 'fuel' && isEv ? 'Charging' : t.label}
+              <t.icon size={14} className="flex-shrink-0" />
+              {t.key === 'fuel' && isEv ? 'Charging' : t.label}
             </button>
           ))}
         </div>
@@ -203,7 +222,7 @@ export default function VehicleDetail() {
             <button onClick={async () => { await deleteVehicle(id); navigate('/garage') }} className="btn-danger flex-1 sm:flex-none">Delete</button>
           </>}
         >
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-secondary">
             This permanently deletes <strong>{vehicleTitle(vehicle)}</strong> and all its records. This can't be undone.
           </p>
         </Modal>
@@ -263,9 +282,9 @@ function EditVehicleModal({ vehicle, onClose, onSaved, onDelete }) {
         <div><label className="label">Purchase price</label><input value={f.purchase_price} onChange={set('purchase_price')} inputMode="decimal" className="input" /></div>
       </div>
       <label className="flex items-center gap-2 text-sm py-1">
-        <input type="checkbox" checked={f.is_electric} onChange={(e) => setF((s) => ({ ...s, is_electric: e.target.checked }))} className="accent-brand w-4 h-4" />
+        <input type="checkbox" checked={f.is_electric} onChange={(e) => setF((s) => ({ ...s, is_electric: e.target.checked }))} className="accent-accent w-4 h-4" />
         Electric vehicle
-        <span className="text-xs text-slate-400">— charges in kWh, efficiency in {units.distance}/kWh</span>
+        <span className="text-xs text-tertiary">— charges in kWh, efficiency in {units.distance}/kWh</span>
       </label>
       <div>
         <label className="label">Notes</label>
@@ -274,7 +293,7 @@ function EditVehicleModal({ vehicle, onClose, onSaved, onDelete }) {
       </div>
 
       {/* Ownership — selling and deleting live together, away from the everyday fields. */}
-      <div className="border-t border-slate-200 dark:border-white/[0.06] pt-3 space-y-3">
+      <div className="border-t border-hairline/50 pt-3 space-y-3">
         {vehicle.is_archived ? (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="badge badge-due-soon">Sold{vehicle.sold_date ? ` ${fmtDate(vehicle.sold_date)}` : ''}</span>
@@ -282,7 +301,7 @@ function EditVehicleModal({ vehicle, onClose, onSaved, onDelete }) {
               Mark as active
             </button>
             <div className="flex-1" />
-            <button type="button" onClick={onDelete} className="btn-ghost text-xs text-red-500 hover:text-red-500">
+            <button type="button" onClick={onDelete} className="btn-ghost text-xs text-bad hover:text-bad">
               <Trash2 size={13} /> Delete…
             </button>
           </div>
@@ -306,37 +325,49 @@ function EditVehicleModal({ vehicle, onClose, onSaved, onDelete }) {
               </button>
               <button type="button" onClick={() => setSelling(false)} className="btn-ghost">Cancel</button>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Sold vehicles move to their own section in the garage — all history stays.</p>
+            <p className="text-xs text-tertiary mt-1">Sold vehicles move to their own section in the garage — all history stays.</p>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setSelling(true)} className="btn-ghost text-xs text-amber-500 hover:text-amber-500">
+            <button type="button" onClick={() => setSelling(true)} className="btn-ghost text-xs text-warn hover:text-warn">
               Mark as sold…
             </button>
             <div className="flex-1" />
-            <button type="button" onClick={onDelete} className="btn-ghost text-xs text-red-500 hover:text-red-500">
+            <button type="button" onClick={onDelete} className="btn-ghost text-xs text-bad hover:text-bad">
               <Trash2 size={13} /> Delete…
             </button>
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
 
 /* ---------- Overview ---------- */
 
-function Stat({ label, value }) {
-  return <div className="stat"><div className="stat-label">{label}</div><div className="stat-value">{value}</div></div>
+function Stat({ label, value, unit, sub, icon: Icon, tone }) {
+  return (
+    <div className="stat flex flex-col">
+      <div className="stat-label flex items-center gap-1.5">
+        {Icon && <Icon size={13} className="text-tertiary flex-shrink-0" />}
+        {label}
+      </div>
+      <div className={`text-2xl font-semibold mt-1.5 num flex items-baseline gap-1 ${tone || 'text-primary'}`}>
+        <span className="truncate">{value}</span>
+        {unit && <span className="text-sm font-medium text-tertiary flex-shrink-0">{unit}</span>}
+      </div>
+      {sub && <div className="footnote mt-1 num">{sub}</div>}
+    </div>
+  )
 }
 
 /* Reminder progress toward due — worst of the mileage and calendar constraints. */
 
 const URGENCY_RANK = { overdue: 0, 'due-soon': 1, upcoming: 2, 'not-due': 3 }
 const URGENCY_BAR = {
-  overdue: 'bg-red-500', 'due-soon': 'bg-amber-500',
-  upcoming: 'bg-blue-500', 'not-due': 'bg-emerald-500',
+  overdue: 'bg-bad-fill', 'due-soon': 'bg-warn-fill',
+  upcoming: 'bg-info-fill', 'not-due': 'bg-ok-fill',
 }
 
 function reminderProgress(r, currentOdo) {
@@ -368,22 +399,15 @@ function reminderStatus(r, currentOdo, u) {
 }
 
 function reminderStatusClass(r) {
-  if (!r.has_baseline) return 'text-amber-500'
-  if (r.urgency === 'overdue') return 'text-red-500 font-medium'
-  if (r.urgency === 'due-soon') return 'text-amber-500 font-medium'
-  return 'text-slate-500 dark:text-slate-400'
+  if (!r.has_baseline) return 'text-warn'
+  if (r.urgency === 'overdue') return 'text-bad font-medium'
+  if (r.urgency === 'due-soon') return 'text-warn font-medium'
+  return 'text-secondary'
 }
 
 function ReminderProgressBar({ r, progress }) {
   if (progress == null) return null
-  return (
-    <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
-      <div
-        className={`h-full rounded-full ${URGENCY_BAR[r.urgency] || 'bg-slate-400'}`}
-        style={{ width: `${Math.max(2, Math.round(progress * 100))}%` }}
-      />
-    </div>
-  )
+  return <Bar value={progress} colorClass={URGENCY_BAR[r.urgency] || 'bg-tertiary'} className="mt-2" />
 }
 
 function ReminderRow({ r, currentOdo, onClick }) {
@@ -392,13 +416,14 @@ function ReminderRow({ r, currentOdo, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-2 py-2 -mx-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+      className="group w-full text-left px-4 sm:px-5 py-3 hover:bg-wash/[0.04] transition-colors"
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-medium truncate min-w-0">{r.description}</span>
-        <span className={`text-xs flex-shrink-0 tabular-nums ${reminderStatusClass(r)}`}>
+      <div className="flex items-baseline gap-3">
+        <span className="text-sm font-medium truncate min-w-0 flex-1">{r.description}</span>
+        <span className={`text-xs flex-shrink-0 num ${reminderStatusClass(r)}`}>
           {reminderStatus(r, currentOdo, units)}
         </span>
+        <ChevronRight size={14} className="flex-shrink-0 text-tertiary transition-transform group-hover:translate-x-0.5" />
       </div>
       <ReminderProgressBar r={r} progress={progress} />
     </button>
@@ -429,10 +454,10 @@ const fmtChartX = (x) => {
 // Fixed color per metric (validated categorical palette, light + dark surfaces).
 // Literal class names — Tailwind's scanner must see them.
 const METRIC_COLORS = {
-  economy: { stroke: 'stroke-brand', fill: 'fill-brand', fillHover: 'fill-brand-hover', dot: 'bg-brand' },
-  miles:   { stroke: 'stroke-emerald-600', fill: 'fill-emerald-600', fillHover: 'fill-emerald-500', dot: 'bg-emerald-600' },
-  spend:   { stroke: 'stroke-amber-600', fill: 'fill-amber-600', fillHover: 'fill-amber-500', dot: 'bg-amber-600' },
-  price:   { stroke: 'stroke-rose-600', fill: 'fill-rose-600', fillHover: 'fill-rose-500', dot: 'bg-rose-600' },
+  economy: { stroke: 'stroke-info-fill', fill: 'fill-info-fill', fillHover: 'fill-accent-hover', dot: 'bg-info-fill', text: 'text-info-fill' },
+  miles:   { stroke: 'stroke-ok-fill', fill: 'fill-ok-fill', fillHover: 'fill-ok', dot: 'bg-ok-fill', text: 'text-ok-fill' },
+  spend:   { stroke: 'stroke-warn-fill', fill: 'fill-warn-fill', fillHover: 'fill-warn', dot: 'bg-warn-fill', text: 'text-warn-fill' },
+  price:   { stroke: 'stroke-bad-fill', fill: 'fill-bad-fill', fillHover: 'fill-bad', dot: 'bg-bad-fill', text: 'text-bad-fill' },
 }
 
 function TrendCard({ fuel, odo, monthlySpend, money, units }) {
@@ -456,6 +481,8 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
     return TREND_RANGES.some((x) => x.key === r) ? r : '1y'
   })
   const [showTable, setShowTable] = useState(false)
+  const [overlay, setOverlay] = useState(() => localStorage.getItem('mm.trendOverlay') === '1')
+  useEffect(() => { localStorage.setItem('mm.trendOverlay', overlay ? '1' : '0') }, [overlay])
   useEffect(() => { localStorage.setItem('mm.trendMetrics', JSON.stringify(selected)) }, [selected])
   useEffect(() => { localStorage.setItem('mm.trendRange', range) }, [range])
 
@@ -509,22 +536,38 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
   }
   const shownMetrics = METRICS.filter((m) => selected.includes(m.key))
   const single = shownMetrics.length === 1
+  const isOverlaid = overlay && !showTable && shownMetrics.length > 1
+  const labelFor = (m) =>
+    isEv && m.key === 'economy' ? 'Efficiency' : isEv && m.key === 'price' ? 'Energy price' : m.label
 
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <p className="stat-label !mb-0">Trends</p>
+        <p className="caption">Trends</p>
         <div className="flex-1" />
-        <div className="flex rounded-lg bg-slate-100 dark:bg-slate-700/40 p-0.5">
+        <div className="flex rounded-lg bg-inset/40 p-0.5">
           {TREND_RANGES.map((r) => (
             <button key={r.key} onClick={() => setRange(r.key)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                range === r.key ? 'bg-white dark:bg-slate-800 text-brand shadow-sm' : 'text-slate-500 dark:text-slate-400'
-              }`}>
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+ range === r.key ? 'bg-surface text-accent shadow-sm' : 'text-secondary'
+ }`}>
               {r.label}
             </button>
           ))}
         </div>
+        {/* Only meaningful with more than one metric on. */}
+        <button
+          onClick={() => setOverlay((o) => !o)}
+          disabled={selected.length < 2 || showTable}
+          aria-pressed={overlay}
+          className={`btn-ghost p-1.5 disabled:opacity-30 ${overlay && selected.length > 1 && !showTable ? 'text-accent hover:text-accent' : ''}`}
+          title={selected.length < 2
+            ? 'Pick a second metric to overlay'
+            : overlay ? 'Show as separate charts' : 'Overlay on one chart'}
+          aria-label={overlay ? 'Show as separate charts' : 'Overlay on one chart'}
+        >
+          {overlay ? <Rows3 size={15} /> : <Layers size={15} />}
+        </button>
         <button onClick={() => setShowTable((s) => !s)} className="btn-ghost p-1.5"
           title={showTable ? 'Show chart' : 'Show table'} aria-label={showTable ? 'Show chart' : 'Show table'}>
           {showTable ? <LineChart size={15} /> : <Table2 size={15} />}
@@ -534,7 +577,7 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
       <div className="flex gap-2 mb-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         {METRICS.map((m) => {
           const on = selected.includes(m.key)
-          const label = isEv && m.key === 'economy' ? 'Efficiency' : isEv && m.key === 'price' ? 'Energy price' : m.label
+          const label = labelFor(m)
           return (
             <button key={m.key} onClick={() => toggleMetric(m.key)} aria-pressed={on}
               className={`chip gap-1.5 ${on ? 'chip-on' : 'chip-off'}`}>
@@ -545,6 +588,9 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
         })}
       </div>
 
+      {isOverlaid ? (
+        <OverlayView metrics={shownMetrics} seriesFor={seriesFor} formats={FORMATS} labelFor={labelFor} />
+      ) : (
       <div className="space-y-4">
         {shownMetrics.map((m) => {
           const s = seriesFor(m.key)
@@ -554,16 +600,14 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
               {!single && (
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${METRIC_COLORS[m.key].dot}`} />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                    {isEv && m.key === 'economy' ? 'Efficiency' : isEv && m.key === 'price' ? 'Energy price' : m.label}
-                  </span>
+                  <span className="text-xs font-medium text-secondary">{labelFor(m)}</span>
                   {s.length > 0 && (
-                    <span className="text-xs text-slate-400 tabular-nums ml-auto">{fmt.value(s[s.length - 1].y)}</span>
+                    <span className="text-xs text-tertiary tabular-nums ml-auto">{fmt.value(s[s.length - 1].y)}</span>
                   )}
                 </div>
               )}
               {s.length === 0 ? (
-                <p className={`text-sm text-slate-400 text-center ${single ? 'py-10' : 'py-4'}`}>
+                <p className={`text-sm text-tertiary text-center ${single ? 'py-10' : 'py-4'}`}>
                   {m.key === 'economy'
                     ? 'No economy data in this range yet — it needs consecutive fill-to-full records.'
                     : m.key === 'miles'
@@ -584,6 +628,54 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
           )
         })}
       </div>
+      )}
+    </div>
+  )
+}
+
+/* One plot, several metrics. Each series keeps its own vertical scale — see the
+   note on OverlayChart — so the legend carries the real numbers and the range
+   each line is drawn across. */
+function OverlayView({ metrics, seriesFor, formats, labelFor }) {
+  const series = metrics
+    .map((m) => ({
+      key: m.key,
+      label: labelFor(m),
+      color: METRIC_COLORS[m.key],
+      points: seriesFor(m.key),
+      formatValue: formats[m.key].value,
+    }))
+    .filter((s) => s.points.length > 0)
+
+  if (series.length === 0) {
+    return <p className="text-sm text-tertiary text-center py-10">No data in this range yet.</p>
+  }
+
+  return (
+    <div>
+      <OverlayChart series={series} height={240} ariaLabel={`${series.map((s) => s.label).join(', ')} over time`} />
+
+      <div className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+        {series.map((s) => {
+          const ys = s.points.map((p) => p.y)
+          const lo = Math.min(...ys)
+          const hi = Math.max(...ys)
+          return (
+            <div key={s.key} className="flex items-baseline gap-2 text-xs min-w-0">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.color.dot}`} />
+              <span className="font-medium text-secondary truncate">{s.label}</span>
+              <span className="flex-1" />
+              <span className="text-tertiary num truncate">
+                {lo === hi ? s.formatValue(lo) : `${s.formatValue(lo)} – ${s.formatValue(hi)}`}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      <p className="footnote mt-2.5">
+        Each line is scaled to its own range so they can be compared for shape, not size.
+      </p>
     </div>
   )
 }
@@ -618,7 +710,7 @@ function NotesCard({ vehicle, onChanged }) {
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2 mb-2">
-        <p className="stat-label !mb-0">Notes</p>
+        <p className="caption">Notes</p>
         <div className="flex-1" />
         {!editing && (
           <button onClick={start} className="btn-ghost p-1.5 -my-1" title="Edit notes" aria-label="Edit notes">
@@ -638,10 +730,10 @@ function NotesCard({ vehicle, onChanged }) {
             </button>
             <button onClick={() => setEditing(false)} className="btn-ghost text-xs">Cancel</button>
           </div>
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-bad">{error}</p>}
         </div>
       ) : (
-        <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{vehicle.notes}</p>
+        <p className="text-sm text-secondary whitespace-pre-wrap">{vehicle.notes}</p>
       )}
     </div>
   )
@@ -683,81 +775,96 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
     }
   }, [fuel])
 
-  if (!data || !fuel || !odo) return <div className="text-slate-400 text-sm">Loading…</div>
+  if (!data || !fuel || !odo) return <OverviewSkeleton />
 
   const b = data.cost_breakdown
-  const topReminders = [...reminders]
-    .sort((a, x) =>
-      (URGENCY_RANK[a.urgency] ?? 9) - (URGENCY_RANK[x.urgency] ?? 9) ||
-      (reminderProgress(x, data.odometer) ?? -1) - (reminderProgress(a, data.odometer) ?? -1)
-    )
-    .slice(0, 5)
+  const ranked = [...reminders].sort((a, x) =>
+    (URGENCY_RANK[a.urgency] ?? 9) - (URGENCY_RANK[x.urgency] ?? 9) ||
+    (reminderProgress(x, data.odometer) ?? -1) - (reminderProgress(a, data.odometer) ?? -1)
+  )
+  const top = ranked.slice(0, 5)
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Stat label="Odometer" value={distance(data.odometer)} />
-        <Stat label="Total spent" value={money(data.total_cost)} />
-        <Stat label="Avg economy" value={data.fuel.avg_economy ? `${data.fuel.avg_economy} ${units.economy}` : '—'} />
-        <Stat label={`Cost / ${units.distance}`} value={data.cost_per_distance != null ? money(data.cost_per_distance) : '—'} />
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Stat icon={Gauge} label="Odometer" value={distance(data.odometer)} />
+        <Stat
+          icon={CircleDollarSign} label="Total spent" value={money(data.total_cost)}
+          sub={data.cost_per_distance != null ? `${money(data.cost_per_distance)} per ${units.distance}` : null}
+        />
+        <Stat
+          icon={TrendingUp} label="Avg economy"
+          value={data.fuel.avg_economy ?? '—'}
+          unit={data.fuel.avg_economy ? units.economy : null}
+        />
+        <Stat
+          icon={Fuel} label={isEv ? 'Charges' : 'Fill-ups'}
+          value={fuelStats ? fuelStats.count : '—'}
+          sub={fuelStats?.avgPrice != null ? `${money(fuelStats.avgPrice)} per ${units.volume}` : null}
+        />
       </div>
 
-      {/* Reminders — always shown here so upcoming maintenance is front and centre */}
-      <div className="card p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Bell size={15} className="text-slate-400" />
-          <p className="stat-label !mb-0">Reminders</p>
+      {/* Up next — every job reads the same way, ordered by urgency. */}
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-2 px-4 sm:px-5 pt-4 pb-3">
+          <Bell size={15} className="text-tertiary" />
+          <p className="caption">Up next</p>
           <div className="flex-1" />
-          <button onClick={onAddReminder} className="btn-ghost p-1.5 -my-1" title="Add reminder" aria-label="Add reminder">
-            <Plus size={14} />
+          <button onClick={onAddReminder} className="btn-ghost -my-1 px-2" title="Add reminder" aria-label="Add reminder">
+            <Plus size={15} />
           </button>
         </div>
+
         {reminders.length === 0 ? (
-          <p className="text-sm text-slate-400 pb-1">
-            No reminders yet —{' '}
-            <button onClick={onAddReminder} className="text-brand hover:underline">add one</button>.
+          <p className="px-4 sm:px-5 pb-5 text-sm text-tertiary">
+            Nothing scheduled —{' '}
+            <button onClick={onAddReminder} className="text-accent hover:underline">add a reminder</button>.
           </p>
         ) : (
-          <div className="space-y-0.5">
-            {topReminders.map((r) => (
-              <ReminderRow key={r.id} r={r} currentOdo={data.odometer} onClick={onOpenReminders} />
-            ))}
-            {reminders.length > topReminders.length && (
-              <button onClick={onOpenReminders} className="text-xs text-brand hover:underline px-2 pt-1">
+          <>
+            <div className="list-group border-t border-hairline/40">
+              {top.map((r) => (
+                <ReminderRow key={r.id} r={r} currentOdo={data.odometer} onClick={onOpenReminders} />
+              ))}
+            </div>
+            {reminders.length > top.length && (
+              <button onClick={onOpenReminders}
+                className="w-full text-left px-4 sm:px-5 py-3 text-xs font-medium text-accent hover:bg-wash/[0.04] border-t border-hairline/40 transition-colors">
                 View all {reminders.length} reminders
               </button>
             )}
-          </div>
+          </>
         )}
       </div>
 
       {/* Tires — only once there's a set to talk about. */}
       {tires && tires.sets.length > 0 && (
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Disc3 size={15} className="text-slate-400" />
-            <p className="stat-label !mb-0">Tires</p>
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-5 pt-4 pb-3">
+            <Disc3 size={15} className="text-tertiary" />
+            <p className="caption">Tires</p>
             <div className="flex-1" />
-            <button onClick={onOpenTires} className="text-xs text-brand hover:underline">Manage</button>
+            <button onClick={onOpenTires} className="text-xs font-medium text-accent hover:underline">Manage</button>
           </div>
-          <div className="space-y-0.5">
+          <div className="list-group border-t border-hairline/40">
             {[...tires.sets].sort((a, b) => (b.is_mounted ? 1 : 0) - (a.is_mounted ? 1 : 0)).map((s) => {
               const rot = rotationStatus(s, units)
               return (
                 <button key={s.id} onClick={onOpenTires}
-                  className="w-full text-left px-2 py-2 -mx-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm font-medium truncate min-w-0">
+                  className="group w-full text-left px-4 sm:px-5 py-3 hover:bg-wash/[0.04] transition-colors">
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-sm font-medium truncate min-w-0 flex-1">
                       {s.name}
-                      {s.is_mounted && <span className="badge badge-service ml-1.5 font-normal">on the car</span>}
+                      {s.is_mounted && <span className="badge badge-service ml-2 font-normal">on the car</span>}
                     </span>
-                    <span className="text-xs flex-shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                    <span className="text-xs flex-shrink-0 num text-secondary">
                       {s.miles.toLocaleString()} {units.distance}
                     </span>
+                    <ChevronRight size={14} className="flex-shrink-0 text-tertiary transition-transform group-hover:translate-x-0.5" />
                   </div>
                   <WearBar pct={s.wear_pct} />
                   {rot && rot.pct != null && rot.pct >= 0.85 && (
-                    <p className={`text-[11px] mt-1 tabular-nums ${rot.cls}`}>{rot.text}</p>
+                    <p className={`text-xs mt-1.5 num ${rot.cls}`}>{rot.text}</p>
                   )}
                 </button>
               )
@@ -768,79 +875,127 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
 
       <TrendCard fuel={fuel} odo={odo} monthlySpend={data.monthly_spend} money={money} units={units} />
 
-      <NotesCard vehicle={vehicle} onChanged={onVehicleChange} />
+      <div className="grid lg:grid-cols-2 gap-3">
+        <CostBreakdown breakdown={b} total={data.total_cost} money={money} />
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div className="card p-4">
-          <p className="stat-label mb-3">Cost breakdown</p>
-          {['fuel', 'service', 'repair', 'upgrade'].map((k) => (
-            <div key={k} className="flex items-center justify-between py-1 text-sm">
-              <span className="capitalize text-slate-600 dark:text-slate-300">{k}</span>
-              <span className="tabular-nums">{money(b[k])}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="card p-4">
-          <p className="stat-label mb-3">{isEv ? 'Charging stats' : 'Fuel stats'}</p>
+        <div className="card-pad">
+          <p className="caption mb-3">{isEv ? 'Charging' : 'Fuel'} stats</p>
           {!fuelStats ? (
-            <p className="text-sm text-slate-400">{isEv ? 'No charges logged yet.' : 'No fill-ups logged yet.'}</p>
+            <p className="text-sm text-tertiary">{isEv ? 'No charges logged yet.' : 'No fill-ups logged yet.'}</p>
           ) : (
-            <>
-              <div className="flex items-center justify-between py-1 text-sm">
-                <span className="text-slate-600 dark:text-slate-300">{isEv ? 'Charges logged' : 'Fill-ups logged'}</span>
-                <span className="tabular-nums">{fuelStats.count}</span>
-              </div>
-              <div className="flex items-center justify-between py-1 text-sm">
-                <span className="text-slate-600 dark:text-slate-300">Avg {isEv ? 'energy' : 'fuel'} price</span>
-                <span className="tabular-nums">{fuelStats.avgPrice != null ? `${money(fuelStats.avgPrice)}/${units.volume}` : '—'}</span>
-              </div>
-              <div className="flex items-center justify-between py-1 text-sm">
-                <span className="text-slate-600 dark:text-slate-300">Best economy</span>
-                <span className="tabular-nums">{fuelStats.best != null ? `${fuelStats.best.toFixed(1)} ${units.economy}` : '—'}</span>
-              </div>
-              <div className="flex items-center justify-between py-1 text-sm">
-                <span className="text-slate-600 dark:text-slate-300">Worst economy</span>
-                <span className="tabular-nums">{fuelStats.worst != null ? `${fuelStats.worst.toFixed(1)} ${units.economy}` : '—'}</span>
-              </div>
-            </>
+            <div className="list-group">
+              <DataRow label={isEv ? 'Charges logged' : 'Fill-ups logged'} value={fuelStats.count} />
+              <DataRow label={`Avg ${isEv ? 'energy' : 'fuel'} price`}
+                value={fuelStats.avgPrice != null ? `${money(fuelStats.avgPrice)}/${units.volume}` : '—'} />
+              <DataRow label="Best economy"
+                value={fuelStats.best != null ? `${fuelStats.best.toFixed(1)} ${units.economy}` : '—'} tone="text-ok" />
+              <DataRow label="Worst economy"
+                value={fuelStats.worst != null ? `${fuelStats.worst.toFixed(1)} ${units.economy}` : '—'} />
+            </div>
           )}
         </div>
       </div>
 
       {!!(vehicle?.purchase_price != null || vehicle?.purchase_date || vehicle?.is_archived) && (
-        <div className="card p-4">
-          <p className="stat-label mb-3">Ownership</p>
-          <div className="flex items-center justify-between py-1 text-sm">
-            <span className="text-slate-600 dark:text-slate-300">Purchased</span>
-            <span className="tabular-nums">
-              {vehicle.purchase_date ? fmtDate(vehicle.purchase_date) : '—'}
-              {vehicle.purchase_price != null && ` · ${money(vehicle.purchase_price)}`}
-            </span>
+        <div className="card-pad">
+          <p className="caption mb-3">Ownership</p>
+          <div className="list-group">
+            <DataRow
+              label="Purchased"
+              value={`${vehicle.purchase_date ? fmtDate(vehicle.purchase_date) : '—'}${
+                vehicle.purchase_price != null ? ` · ${money(vehicle.purchase_price)}` : ''}`}
+            />
+            {!!vehicle.is_archived && (
+              <DataRow
+                label="Sold"
+                value={`${vehicle.sold_date ? fmtDate(vehicle.sold_date) : '—'}${
+                  vehicle.sold_price != null ? ` · ${money(vehicle.sold_price)}` : ''}`}
+              />
+            )}
+            <DataRow label="Running costs" value={money(data.total_cost)} />
+            {vehicle.purchase_price != null && (
+              <DataRow
+                label="All-in cost" strong
+                value={money(vehicle.purchase_price + data.total_cost - (vehicle.sold_price ?? 0))}
+              />
+            )}
           </div>
-          {!!vehicle.is_archived && (
-            <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-slate-600 dark:text-slate-300">Sold</span>
-              <span className="tabular-nums">
-                {vehicle.sold_date ? fmtDate(vehicle.sold_date) : '—'}
-                {vehicle.sold_price != null && ` · ${money(vehicle.sold_price)}`}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center justify-between py-1 text-sm">
-            <span className="text-slate-600 dark:text-slate-300">Running costs</span>
-            <span className="tabular-nums">{money(data.total_cost)}</span>
-          </div>
-          {vehicle.purchase_price != null && (
-            <div className="flex items-center justify-between py-1 text-sm border-t border-slate-100 dark:border-white/[0.04] mt-1 pt-2">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">All-in cost</span>
-              <span className="tabular-nums font-medium">
-                {money(vehicle.purchase_price + data.total_cost - (vehicle.sold_price ?? 0))}
-              </span>
-            </div>
-          )}
         </div>
       )}
+
+      <NotesCard vehicle={vehicle} onChanged={onVehicleChange} />
+    </div>
+  )
+}
+
+/* Where the money went, as one proportional bar rather than four lonely
+   numbers — the split is the interesting part, and a bar shows it instantly. */
+const COST_PARTS = [
+  { key: 'fuel', label: 'Fuel', bar: 'bg-info-fill', dot: 'bg-info-fill' },
+  { key: 'service', label: 'Service', bar: 'bg-ok-fill', dot: 'bg-ok-fill' },
+  { key: 'repair', label: 'Repair', bar: 'bg-bad-fill', dot: 'bg-bad-fill' },
+  { key: 'upgrade', label: 'Upgrade', bar: 'bg-violet-fill', dot: 'bg-violet-fill' },
+]
+
+function CostBreakdown({ breakdown, total, money }) {
+  const sum = COST_PARTS.reduce((n, p) => n + (breakdown[p.key] || 0), 0)
+  return (
+    <div className="card-pad">
+      <div className="flex items-baseline gap-3 mb-3">
+        <p className="caption">Where the money went</p>
+        <div className="flex-1" />
+        <p className="text-sm font-semibold num">{money(total)}</p>
+      </div>
+
+      {sum > 0 ? (
+        <div className="flex h-2.5 rounded-full overflow-hidden bg-inset gap-0.5">
+          {COST_PARTS.map((p) => {
+            const v = breakdown[p.key] || 0
+            if (v <= 0) return null
+            return <div key={p.key} className={p.bar} style={{ width: `${(v / sum) * 100}%` }} title={`${p.label} ${money(v)}`} />
+          })}
+        </div>
+      ) : (
+        <div className="h-2.5 rounded-full bg-inset" />
+      )}
+
+      <div className="mt-3 list-group">
+        {COST_PARTS.map((p) => (
+          <DataRow
+            key={p.key}
+            label={<span className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.dot}`} />{p.label}
+            </span>}
+            value={money(breakdown[p.key])}
+            sub={sum > 0 ? `${Math.round(((breakdown[p.key] || 0) / sum) * 100)}%` : null}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* A label/value line in a grouped list. */
+function DataRow({ label, value, sub, tone, strong }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2 text-sm">
+      <span className={`min-w-0 truncate ${strong ? 'font-medium text-primary' : 'text-secondary'}`}>{label}</span>
+      <span className="flex items-baseline gap-2 flex-shrink-0">
+        {sub && <span className="footnote num">{sub}</span>}
+        <span className={`num ${strong ? 'font-semibold' : ''} ${tone || 'text-primary'}`}>{value}</span>
+      </span>
+    </div>
+  )
+}
+
+function OverviewSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-24" />)}
+      </div>
+      <div className="card h-56" />
+      <div className="card h-72" />
     </div>
   )
 }
@@ -850,10 +1005,10 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
 function TabShell({ title, addLabel = 'Add', onAdd, children }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h2>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="title-sm">{title}</h2>
         {/* The mobile FAB covers this action on small screens. */}
-        <button onClick={onAdd} className="btn-primary text-xs hidden sm:inline-flex"><Plus size={14} /> {addLabel}</button>
+        <button onClick={onAdd} className="btn-primary hidden sm:inline-flex"><Plus size={15} /> {addLabel}</button>
       </div>
       {children}
     </div>
@@ -863,24 +1018,25 @@ function TabShell({ title, addLabel = 'Add', onAdd, children }) {
 function RowActions({ onEdit, onDelete, attachCount, onAttach, compact = false }) {
   const pad = compact ? 'p-1.5' : 'p-2'
   const iconSize = compact ? 14 : 16
+  const base = `rounded-md transition-colors hover:bg-wash/[0.07] ${pad}`
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex items-center justify-end gap-0.5">
       {onAttach && (
-        <button onClick={onAttach} className={`relative text-slate-400 hover:text-brand ${pad}`} title="Receipts & documents" aria-label="Receipts & documents">
-          <Paperclip size={iconSize - 1} className={attachCount > 0 ? 'text-brand' : ''} />
+        <button onClick={onAttach} className={`relative text-tertiary hover:text-accent ${base}`} title="Receipts & documents" aria-label="Receipts & documents">
+          <Paperclip size={iconSize - 1} className={attachCount > 0 ? 'text-accent' : ''} />
           {attachCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 bg-brand text-white text-[9px] leading-none rounded-full min-w-[13px] h-[13px] flex items-center justify-center px-0.5">{attachCount}</span>
+            <span className="absolute -top-0.5 -right-0.5 bg-accent text-white text-[9px] leading-none rounded-full min-w-[13px] h-[13px] flex items-center justify-center px-0.5">{attachCount}</span>
           )}
         </button>
       )}
-      <button onClick={onEdit} className={`text-slate-400 hover:text-brand ${pad}`} title="Edit" aria-label="Edit"><Pencil size={iconSize - 1} /></button>
-      <button onClick={onDelete} className={`text-slate-400 hover:text-red-500 ${pad}`} title="Delete" aria-label="Delete"><Trash2 size={iconSize} /></button>
+      <button onClick={onEdit} className={`text-tertiary hover:text-accent ${base}`} title="Edit" aria-label="Edit"><Pencil size={iconSize - 1} /></button>
+      <button onClick={onDelete} className={`text-tertiary hover:text-bad ${base}`} title="Delete" aria-label="Delete"><Trash2 size={iconSize} /></button>
     </div>
   )
 }
 
 function EmptyRow({ colSpan, label }) {
-  return <tr><td colSpan={colSpan} className="py-8 text-center text-sm text-slate-400">{label}</td></tr>
+  return <tr><td colSpan={colSpan} className="py-14 text-center text-sm text-secondary">{label}</td></tr>
 }
 
 /* Column sorting — local per tab, so every page opens on date, newest first. */
@@ -909,11 +1065,11 @@ function Th({ label, k, sort, onSort }) {
   const active = sort.key === k
   const Icon = active ? (sort.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
   return (
-    <th aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined} className="px-3 py-1">
+    <th aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined} className="px-4 py-0 font-normal">
       <button
         onClick={() => onSort(k)}
-        className={`group flex items-center gap-1 py-1 uppercase tracking-wider text-[11px] font-medium transition-colors ${
-          active ? 'text-brand' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+        className={`group flex items-center gap-1 py-2.5 text-xs font-medium transition-colors ${
+          active ? 'text-accent' : 'text-secondary hover:text-primary'
         }`}
       >
         {label} <Icon size={11} className={active ? '' : 'opacity-0 group-hover:opacity-60 transition-opacity'} />
@@ -925,8 +1081,8 @@ function Th({ label, k, sort, onSort }) {
 // Mobile counterpart of the sortable headers, shown above the card lists.
 function MobileSortBar({ columns, sort, setSort }) {
   return (
-    <div className="sm:hidden flex items-center justify-end gap-0.5 mb-2 text-xs text-slate-500 dark:text-slate-400">
-      <label htmlFor="mobile-sort" className="text-[11px] text-slate-400">Sort</label>
+    <div className="sm:hidden flex items-center justify-end gap-0.5 mb-2 text-xs text-secondary">
+      <label htmlFor="mobile-sort" className="text-xs text-tertiary">Sort</label>
       <select
         id="mobile-sort"
         value={sort.key}
@@ -949,9 +1105,9 @@ function MobileSortBar({ columns, sort, setSort }) {
 
 function EmptyCard({ label, actionLabel, onAction }) {
   return (
-    <div className="card p-8 text-center text-sm text-slate-400">
-      <p>{label}</p>
-      {onAction && <button onClick={onAction} className="btn-primary text-xs mt-3"><Plus size={13} /> {actionLabel}</button>}
+    <div className="card px-6 py-12 flex flex-col items-center text-center">
+      <p className="text-sm text-secondary">{label}</p>
+      {onAction && <button onClick={onAction} className="btn-tinted mt-4"><Plus size={15} /> {actionLabel}</button>}
     </div>
   )
 }
@@ -1021,11 +1177,11 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
               <span className="text-sm font-medium">{fmtDate(r.date)}</span>
               <div className="text-right">
                 <div className="text-sm font-semibold tabular-nums">{money(r.cost)}</div>
-                {r.price != null && <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">{money(r.price)}/{units.volume}</div>}
+                {r.price != null && <div className="text-xs text-secondary tabular-nums">{money(r.price)}/{units.volume}</div>}
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 mt-0.5">
-              <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums min-w-0 truncate">
+              <p className="text-xs text-secondary tabular-nums min-w-0 truncate">
                 {distance(r.odometer)} · {r.quantity} {units.volume}{!r.is_fill_to_full && ' (partial)'}
                 {r.economy ? ` · ${r.economy} ${units.economy}` : ''}
               </p>
@@ -1036,28 +1192,30 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
       </div>
 
       {/* Desktop: full table */}
-      <div className="card overflow-x-auto hidden sm:block">
+      <div className="card overflow-hidden hidden sm:block">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left border-b border-slate-200 dark:border-white/[0.06]">
+            <tr className="text-left bg-inset/60">
               {fuelColumns.map((c) => <Th key={c.k} label={c.label} k={c.k} sort={sort} onSort={sortBy} />)}
-              <th className="px-3 py-2"></th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? <EmptyRow colSpan={7} label="No fuel records yet." /> : sorted.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 dark:border-white/[0.04] last:border-0">
-                <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-3 py-2 tabular-nums">{r.odometer.toLocaleString()}</td>
-                <td className="px-3 py-2 tabular-nums">{r.quantity}{!r.is_fill_to_full && <span className="text-slate-400"> (partial)</span>}</td>
-                <td className="px-3 py-2 tabular-nums">{money(r.cost)}</td>
-                <td className="px-3 py-2 tabular-nums text-slate-500">{r.price != null ? money(r.price) : '—'}</td>
-                <td className="px-3 py-2 tabular-nums text-slate-500">{r.economy ? `${r.economy} ${units.economy}` : '—'}</td>
-                <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
+              <tr key={r.id} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
+                <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</td>
+                <td className="px-4 py-3 tabular-nums">{r.odometer.toLocaleString()}</td>
+                <td className="px-4 py-3 tabular-nums">{r.quantity}{!r.is_fill_to_full && <span className="text-tertiary"> (partial)</span>}</td>
+                <td className="px-4 py-3 tabular-nums">{money(r.cost)}</td>
+                <td className="px-4 py-3 tabular-nums text-secondary">{r.price != null ? money(r.price) : '—'}</td>
+                <td className="px-4 py-3 tabular-nums text-secondary">{r.economy ? `${r.economy} ${units.economy}` : '—'}</td>
+                <td className="px-4 py-3"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       {form && (
         <FuelForm vehicleId={vehicleId} record={form.id ? form : null} lastFillup={lastFillup} units={units}
@@ -1120,7 +1278,7 @@ function FuelForm({ vehicleId, record, lastFillup, units, onClose, onSaved }) {
           <input ref={odoRef} value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input"
             placeholder={lastFillup ? String(lastFillup.odometer) : ''} />
           {!record && lastFillup && (
-            <p className="text-[11px] text-slate-400 mt-1">Last: {lastFillup.odometer.toLocaleString()} on {fmtDate(lastFillup.date)}</p>
+            <p className="text-xs text-tertiary mt-1">Last: {lastFillup.odometer.toLocaleString()} on {fmtDate(lastFillup.date)}</p>
           )}
         </div>
         <div>
@@ -1132,15 +1290,15 @@ function FuelForm({ vehicleId, record, lastFillup, units, onClose, onSaved }) {
         <label className="label">Total cost</label>
         <input value={f.cost} onChange={set('cost')} inputMode="decimal" className="input" />
         {qty > 0 && cost > 0 && (
-          <p className="text-[11px] text-slate-400 mt-1 tabular-nums">≈ {money(cost / qty)} / {units.volume}</p>
+          <p className="text-xs text-tertiary mt-1 tabular-nums">≈ {money(cost / qty)} / {units.volume}</p>
         )}
       </div>
-      <label className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={f.is_fill_to_full} onChange={toggle('is_fill_to_full')} className="accent-brand w-4 h-4" /> {isEv ? 'Charged to 100%' : 'Filled to full'}</label>
-      <label className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={f.missed_fuelup} onChange={toggle('missed_fuelup')} className="accent-brand w-4 h-4" /> {isEv ? 'Missed a previous charge' : 'Missed a previous fill-up'}</label>
+      <label className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={f.is_fill_to_full} onChange={toggle('is_fill_to_full')} className="accent-accent w-4 h-4" /> {isEv ? 'Charged to 100%' : 'Filled to full'}</label>
+      <label className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={f.missed_fuelup} onChange={toggle('missed_fuelup')} className="accent-accent w-4 h-4" /> {isEv ? 'Missed a previous charge' : 'Missed a previous fill-up'}</label>
       <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
       <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
       <RecordAttachments vehicleId={vehicleId} recordType="fuel" recordId={record?.id} pending={pending} setPending={setPending} />
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
@@ -1210,7 +1368,7 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
               <span className="text-sm font-semibold tabular-nums flex-shrink-0">{money(r.cost)}</span>
             </div>
             <div className="flex items-center justify-between gap-2 mt-1">
-              <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums min-w-0 truncate flex items-center gap-1.5">
+              <p className="text-xs text-secondary tabular-nums min-w-0 truncate flex items-center gap-1.5">
                 <span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span>
                 {fmtDate(r.date)}{r.odometer != null && ` · ${r.odometer.toLocaleString()}`}
               </p>
@@ -1221,30 +1379,32 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
       </div>
 
       {/* Desktop: full table */}
-      <div className="card overflow-x-auto hidden sm:block">
+      <div className="card overflow-hidden hidden sm:block">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left border-b border-slate-200 dark:border-white/[0.06]">
+            <tr className="text-left bg-inset/60">
               {RECORD_COLUMNS.map((c) => <Th key={c.k} label={c.label} k={c.k} sort={sort} onSort={sortBy} />)}
-              <th className="px-3 py-2"></th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {shown.length === 0 ? <EmptyRow colSpan={6} label="Nothing logged here yet." /> : shown.map((r) => (
-              <tr key={`${r.type}-${r.id}`} className="border-b border-slate-100 dark:border-white/[0.04] last:border-0">
-                <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-3 py-2"><span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span></td>
-                <td className="px-3 py-2 tabular-nums">{r.odometer != null ? r.odometer.toLocaleString() : '—'}</td>
-                <td className="px-3 py-2">
+              <tr key={`${r.type}-${r.id}`} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
+                <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</td>
+                <td className="px-4 py-3"><span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span></td>
+                <td className="px-4 py-3 tabular-nums">{r.odometer != null ? r.odometer.toLocaleString() : '—'}</td>
+                <td className="px-4 py-3">
                   {r.description}
                   {tireNames[r.tire_set_id] && <span className="badge badge-not-due ml-1.5 font-normal">{tireNames[r.tire_set_id]}</span>}
                 </td>
-                <td className="px-3 py-2 tabular-nums">{money(r.cost)}</td>
-                <td className="px-3 py-2"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
+                <td className="px-4 py-3 tabular-nums">{money(r.cost)}</td>
+                <td className="px-4 py-3"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       {form && (
         <CostRecordForm vehicleId={vehicleId} record={form.id ? form : null} initialType={form.type}
@@ -1361,25 +1521,25 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
     <Modal title={record ? `Edit ${TYPE_LABEL[type].toLowerCase()}` : 'Add record'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div>
         <label className="label">Type</label>
-        <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-700/40">
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-inset/40">
           {RECORD_TYPES.map((t) => (
             <button key={t} type="button" onClick={() => setType(t)}
               className={`h-9 rounded-md text-sm font-medium transition-colors ${
-                type === t ? 'bg-white dark:bg-slate-800 text-brand shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-              }`}>
+ type === t ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'
+ }`}>
               {TYPE_LABEL[t]}
             </button>
           ))}
         </div>
         {record && type !== record.type && (
-          <p className="text-[11px] text-slate-400 mt-1">Saving moves this record to {TYPE_LABEL[type].toLowerCase()}s — attachments come along.</p>
+          <p className="text-xs text-tertiary mt-1">Saving moves this record to {TYPE_LABEL[type].toLowerCase()}s — attachments come along.</p>
         )}
       </div>
       <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
       <div>
         <label className="label">Items</label>
         <ItemsInput value={f.items} onChange={(items) => setF((s) => ({ ...s, items }))} options={type === 'service' ? serviceOptions : PRESETS[type]} placeholder="e.g. Oil change" />
-        <p className="text-[11px] text-slate-400 mt-1">Add multiple if you did several things in one visit.</p>
+        <p className="text-xs text-tertiary mt-1">Add multiple if you did several things in one visit.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="label">Odometer</label><input value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
@@ -1387,7 +1547,7 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
       </div>
 
       {showTires && (
-        <div className="border-t border-slate-200 dark:border-white/[0.06] pt-3">
+        <div className="border-t border-hairline/50 pt-3">
           <label className="label">Which tires?</label>
           <select value={tireSet} onChange={(e) => pickSet(e.target.value)} className="input">
             <option value="">Not tied to a set</option>
@@ -1416,13 +1576,13 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
 
           {tireSet !== '' && (
             <label className="flex items-center gap-2 text-sm mt-2">
-              <input type="checkbox" checked={changeover} onChange={(e) => setChangeover(e.target.checked)} className="accent-brand w-4 h-4" />
+              <input type="checkbox" checked={changeover} onChange={(e) => setChangeover(e.target.checked)} className="accent-accent w-4 h-4" />
               Changeover — this set goes on the car
             </label>
           )}
           {/* Spelling out the set names beats describing the mechanism: the
               sentence says exactly what saving will do. */}
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-xs text-tertiary mt-1">
             {tireSet === ''
               ? 'Pick a set so a rotation or repair records which tires it was.'
               : changeover
@@ -1437,7 +1597,7 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
 
       <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
       <RecordAttachments vehicleId={vehicleId} recordType={record?.type || type} recordId={record?.id} pending={pending} setPending={setPending} />
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
@@ -1455,17 +1615,17 @@ const TREAD_CORNERS = [
 
 // Worn-in colour ramp, matching the reminder bars: fine → getting on → replace.
 const wearClass = (pct) =>
-  pct == null ? 'bg-slate-400' : pct >= 0.9 ? 'bg-red-500' : pct >= 0.75 ? 'bg-amber-500' : 'bg-emerald-500'
+  pct == null ? 'bg-tertiary' : pct >= 0.9 ? 'bg-bad-fill' : pct >= 0.75 ? 'bg-warn-fill' : 'bg-ok-fill'
 
 // Rotations turn amber and red later than tread wear does — being due is a
 // nudge, not a problem, so the thresholds line up with the status wording.
 const rotationBarClass = (pct) =>
-  pct == null ? 'bg-slate-400' : pct >= 1 ? 'bg-red-500' : pct >= 0.85 ? 'bg-amber-500' : 'bg-emerald-500'
+  pct == null ? 'bg-tertiary' : pct >= 1 ? 'bg-bad-fill' : pct >= 0.85 ? 'bg-warn-fill' : 'bg-ok-fill'
 
 function WearBar({ pct, barClass }) {
   if (pct == null) return null
   return (
-    <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+    <div className="mt-1.5 h-1.5 rounded-full bg-inset dark:bg-white/[0.06] overflow-hidden">
       <div className={`h-full rounded-full ${barClass || wearClass(pct)}`} style={{ width: `${Math.max(2, Math.round(pct * 100))}%` }} />
     </div>
   )
@@ -1475,7 +1635,7 @@ function WearBar({ pct, barClass }) {
 function rotationStatus(s, u) {
   if (!s.rotate_miles) return null
   if (s.miles_since_rotation == null) {
-    return { text: 'no rotation logged', cls: 'text-amber-500', pct: null }
+    return { text: 'no rotation logged', cls: 'text-warn', pct: null }
   }
   const pct = s.miles_since_rotation / s.rotate_miles
   const left = s.rotate_miles - s.miles_since_rotation
@@ -1483,7 +1643,7 @@ function rotationStatus(s, u) {
     text: left < 0
       ? `rotation ${Math.abs(left).toLocaleString()} ${u.distance} overdue`
       : `${left.toLocaleString()} ${u.distance} to rotation`,
-    cls: pct >= 1 ? 'text-red-500 font-medium' : pct >= 0.85 ? 'text-amber-500 font-medium' : 'text-slate-500 dark:text-slate-400',
+    cls: pct >= 1 ? 'text-bad font-medium' : pct >= 0.85 ? 'text-warn font-medium' : 'text-secondary',
     pct: Math.min(1, pct),
   }
 }
@@ -1501,7 +1661,7 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
   // Every tire write returns the whole recomputed picture, so saving is one round trip.
   const applied = (fresh) => { setData(fresh); onChange?.() }
 
-  if (!data) return <div className="text-slate-400 text-sm">Loading…</div>
+  if (!data) return <div className="text-tertiary text-sm">Loading…</div>
 
   const open = data.sets.find((s) => s.id === openSetId)
   if (open) {
@@ -1531,7 +1691,7 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
         <div className="space-y-5">
           <section>
             <div className="flex items-center gap-2 mb-2">
-              <p className="stat-label !mb-0">On the car</p>
+              <p className="caption">On the car</p>
               <div className="flex-1" />
               <button onClick={() => setChangeForm(true)} className="btn-ghost text-xs">
                 <Repeat size={13} /> Log changeover
@@ -1540,9 +1700,9 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
             {mounted ? (
               <TireSetCard s={mounted} money={money} units={units} onOpen={() => setOpenSetId(mounted.id)} />
             ) : (
-              <div className="card p-4 text-sm text-slate-400">
+              <div className="card p-4 text-sm text-tertiary">
                 No set is marked as mounted.{' '}
-                <button onClick={() => setChangeForm(true)} className="text-brand hover:underline">Log a changeover</button>{' '}
+                <button onClick={() => setChangeForm(true)} className="text-accent hover:underline">Log a changeover</button>{' '}
                 to start counting miles.
               </div>
             )}
@@ -1550,7 +1710,7 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
 
           {garage.length > 0 && (
             <section>
-              <p className="stat-label mb-2">In the garage</p>
+              <p className="caption mb-2">In the garage</p>
               <div className="space-y-2">
                 {garage.map((s) => <TireSetCard key={s.id} s={s} money={money} units={units} onOpen={() => setOpenSetId(s.id)} />)}
               </div>
@@ -1559,7 +1719,7 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
 
           {retired.length > 0 && (
             <section>
-              <p className="stat-label mb-2">Retired</p>
+              <p className="caption mb-2">Retired</p>
               <div className="space-y-2">
                 {retired.map((s) => <TireSetCard key={s.id} s={s} money={money} units={units} onOpen={() => setOpenSetId(s.id)} />)}
               </div>
@@ -1568,31 +1728,31 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
 
           {data.changes.length > 0 && (
             <section>
-              <p className="stat-label mb-2">Changeover history</p>
-              <div className="card divide-y divide-slate-100 dark:divide-white/[0.04]">
+              <p className="caption mb-2">Changeover history</p>
+              <div className="card divide-y divide-hairline/40">
                 {data.changes.map((c) => (
                   <div key={c.id} className="flex items-center gap-1 pr-2">
                     <button
                       onClick={() => setChangeForm(c)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm flex-1 min-w-0 text-left rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 text-sm flex-1 min-w-0 text-left rounded-lg hover:bg-wash/[0.05] transition-colors"
                     >
-                      <span className="tabular-nums text-slate-500 dark:text-slate-400 w-24 flex-shrink-0">{fmtDate(c.date)}</span>
+                      <span className="tabular-nums text-secondary w-24 flex-shrink-0">{fmtDate(c.date)}</span>
                       <span className="min-w-0 truncate flex-1">
-                        {c.set_name || <span className="text-slate-400 italic">nothing mounted</span>}
+                        {c.set_name || <span className="text-tertiary italic">nothing mounted</span>}
                         {c.is_redundant && (
                           <span className="badge badge-due-soon ml-1.5 font-normal" title="This set was already on the car — this row only splits one stint in two">
                             already on
                           </span>
                         )}
                       </span>
-                      <span className="tabular-nums text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                      <span className="tabular-nums text-xs text-secondary flex-shrink-0">
                         at {c.odometer.toLocaleString()}
                         {c.miles != null && ` · ran ${c.miles.toLocaleString()} ${units.distance}${c.is_current ? ' so far' : ''}`}
                       </span>
                     </button>
                     <button
                       onClick={async () => applied(await deleteTireChange(vehicleId, c.id))}
-                      className="text-slate-400 hover:text-red-500 p-1 flex-shrink-0"
+                      className="text-tertiary hover:text-bad p-1 flex-shrink-0"
                       title="Delete changeover" aria-label="Delete changeover"
                     >
                       <Trash2 size={14} />
@@ -1600,7 +1760,7 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5">
+              <p className="text-xs text-tertiary mt-1.5">
                 Each changeover runs until the next one — the newest counts up to your current odometer.
                 Tap one to correct its date or odometer.
               </p>
@@ -1629,7 +1789,7 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
 function TireSetCard({ s, money, units, onOpen }) {
   const rot = rotationStatus(s, units)
   return (
-    <button onClick={onOpen} className="card p-3 w-full text-left hover:border-brand/40 transition-colors">
+    <button onClick={onOpen} className="card p-3 w-full text-left hover:border-accent/40 transition-colors">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm font-medium truncate min-w-0">{s.name}</span>
         <span className="text-sm font-semibold tabular-nums flex-shrink-0">
@@ -1637,7 +1797,7 @@ function TireSetCard({ s, money, units, onOpen }) {
         </span>
       </div>
       <div className="flex items-center justify-between gap-3 mt-0.5">
-        <span className="text-xs text-slate-500 dark:text-slate-400 truncate min-w-0">
+        <span className="text-xs text-secondary truncate min-w-0">
           {s.size && `${s.size} · `}
           {s.is_mounted && s.mounted_since
             ? `on since ${fmtDate(s.mounted_since.date)} at ${s.mounted_since.odometer.toLocaleString()}`
@@ -1650,7 +1810,7 @@ function TireSetCard({ s, money, units, onOpen }) {
       {(s.expected_miles > 0 || s.baseline_miles > 0) && (
         <>
           {s.expected_miles > 0 && <WearBar pct={s.wear_pct} />}
-          <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
+          <p className="text-xs text-tertiary mt-1 tabular-nums">
             {[
               s.expected_miles > 0 && `${Math.round((s.wear_pct ?? 0) * 100)}% of ${s.expected_miles.toLocaleString()} ${units.distance}`,
               s.baseline_miles > 0 && `incl. ${s.baseline_miles.toLocaleString()} before tracking`,
@@ -1678,7 +1838,7 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
       </div>
 
       <h2 className="text-base font-semibold mb-0.5">{s.name}</h2>
-      <p className="text-xs text-slate-400 mb-4">
+      <p className="text-xs text-tertiary mb-4">
         {[s.size, s.purchase_date && `bought ${fmtDate(s.purchase_date)}`, s.cost != null && money(s.cost)].filter(Boolean).join(' · ') || 'No purchase details'}
       </p>
 
@@ -1692,15 +1852,15 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
       {s.expected_miles > 0 && (
         <div className="card p-4 mb-5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="stat-label !mb-0">Tread life</p>
-            <p className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+            <p className="caption">Tread life</p>
+            <p className="text-xs tabular-nums text-secondary">
               {s.miles.toLocaleString()} of {s.expected_miles.toLocaleString()} {units.distance}
               {s.miles < s.expected_miles && ` · ${(s.expected_miles - s.miles).toLocaleString()} left`}
             </p>
           </div>
           <WearBar pct={s.wear_pct} />
           {s.baseline_miles > 0 && (
-            <p className="text-[11px] text-slate-400 mt-1.5 tabular-nums">
+            <p className="text-xs text-tertiary mt-1.5 tabular-nums">
               {s.baseline_miles.toLocaleString()} estimated before tracking + {s.tracked_miles.toLocaleString()} logged since.
             </p>
           )}
@@ -1710,11 +1870,11 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
       {rot && (
         <div className="card p-4 mb-5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="stat-label !mb-0">Rotation</p>
+            <p className="caption">Rotation</p>
             <p className={`text-xs tabular-nums ${rot.cls}`}>{rot.text}</p>
           </div>
           <WearBar pct={rot.pct} barClass={rotationBarClass(rot.pct)} />
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+          <p className="text-xs text-secondary mt-1.5">
             {s.last_rotation
               ? `Last rotated ${fmtDate(s.last_rotation.date)}${s.last_rotation.odometer != null ? ` at ${s.last_rotation.odometer.toLocaleString()}` : ''} — ${s.miles_since_rotation.toLocaleString()} ${units.distance} on this set since.`
               : `No rotation recorded on this set yet. Log a service with a “rotation” item and tag it to this set.`}
@@ -1723,11 +1883,11 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
       )}
 
       <div className="mb-5">
-        <p className="stat-label mb-2">Time on the car</p>
+        <p className="caption mb-2">Time on the car</p>
         {s.records.length === 0 && !s.last_change ? (
-          <div className="card p-4 text-sm text-slate-400">Never mounted — log a changeover to start counting.</div>
+          <div className="card p-4 text-sm text-tertiary">Never mounted — log a changeover to start counting.</div>
         ) : (
-          <div className="card p-4 text-sm text-slate-600 dark:text-slate-300">
+          <div className="card p-4 text-sm text-secondary">
             {s.is_mounted && s.mounted_since
               ? <>On the car since {fmtDate(s.mounted_since.date)} at {s.mounted_since.odometer.toLocaleString()} — {(odometer - s.mounted_since.odometer).toLocaleString()} {units.distance} this stint.</>
               : s.last_change
@@ -1738,21 +1898,21 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
       </div>
 
       <div className="mb-5">
-        <p className="stat-label mb-2">Services on this set</p>
+        <p className="caption mb-2">Services on this set</p>
         {s.records.length === 0 ? (
-          <div className="card p-4 text-sm text-slate-400">
+          <div className="card p-4 text-sm text-tertiary">
             Nothing tagged to this set yet — tag a rotation, balance or repair to it from the Service tab.
           </div>
         ) : (
-          <div className="card divide-y divide-slate-100 dark:divide-white/[0.04]">
+          <div className="card divide-y divide-hairline/40">
             {s.records.map((r) => (
               <div key={`${r.type}-${r.id}`} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span className="tabular-nums text-slate-500 dark:text-slate-400 w-24 flex-shrink-0">{fmtDate(r.date)}</span>
+                <span className="tabular-nums text-secondary w-24 flex-shrink-0">{fmtDate(r.date)}</span>
                 <span className="min-w-0 truncate flex-1">
                   {r.description}
                   {r.is_rotation && <span className="badge badge-not-due ml-1.5">rotation</span>}
                 </span>
-                <span className="tabular-nums text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                <span className="tabular-nums text-xs text-secondary flex-shrink-0">
                   {r.odometer != null && `${r.odometer.toLocaleString()} · `}{money(r.cost)}
                 </span>
               </div>
@@ -1763,35 +1923,35 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
 
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-2">
-          <p className="stat-label !mb-0">Tread depth</p>
+          <p className="caption">Tread depth</p>
           <div className="flex-1" />
           <button onClick={() => setTreadForm(true)} className="btn-ghost text-xs"><Plus size={13} /> Add reading</button>
         </div>
         {s.treads.length === 0 ? (
-          <div className="card p-4 text-sm text-slate-400">No measurements yet.</div>
+          <div className="card p-4 text-sm text-tertiary">No measurements yet.</div>
         ) : (
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left border-b border-slate-200 dark:border-white/[0.06] text-[11px] uppercase tracking-wider text-slate-400">
-                  <th className="px-3 py-2 font-medium">Date</th>
-                  <th className="px-3 py-2 font-medium">Odometer</th>
-                  {TREAD_CORNERS.map((c) => <th key={c.k} className="px-3 py-2 font-medium">{c.label}</th>)}
-                  <th className="px-3 py-2"></th>
+                <tr className="text-left border-b border-hairline/50 text-xs font-medium text-secondary">
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Odometer</th>
+                  {TREAD_CORNERS.map((c) => <th key={c.k} className="px-4 py-3 font-medium">{c.label}</th>)}
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {s.treads.map((t) => (
-                  <tr key={t.id} className="border-b border-slate-100 dark:border-white/[0.04] last:border-0">
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(t.date)}</td>
-                    <td className="px-3 py-2 tabular-nums">{t.odometer != null ? t.odometer.toLocaleString() : '—'}</td>
+                  <tr key={t.id} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap">{fmtDate(t.date)}</td>
+                    <td className="px-4 py-3 tabular-nums">{t.odometer != null ? t.odometer.toLocaleString() : '—'}</td>
                     {TREAD_CORNERS.map((c) => (
-                      <td key={c.k} className="px-3 py-2 tabular-nums">{t[c.k] != null ? t[c.k] : '—'}</td>
+                      <td key={c.k} className="px-4 py-3 tabular-nums">{t[c.k] != null ? t[c.k] : '—'}</td>
                     ))}
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-4 py-3 text-right">
                       <button
                         onClick={async () => onChanged(await deleteTread(vehicleId, t.id))}
-                        className="text-slate-400 hover:text-red-500 p-1" title="Delete reading" aria-label="Delete reading"
+                        className="text-tertiary hover:text-bad p-1" title="Delete reading" aria-label="Delete reading"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1802,18 +1962,18 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
             </table>
           </div>
         )}
-        <p className="text-[11px] text-slate-400 mt-1.5">Depths in 32nds of an inch (or mm — whatever you measure in). New tires are around 10–11/32".</p>
+        <p className="text-xs text-tertiary mt-1.5">Depths in 32nds of an inch (or mm — whatever you measure in). New tires are around 10–11/32".</p>
       </div>
 
       {s.notes && (
         <div className="card p-4 mb-5">
-          <p className="stat-label mb-1">Notes</p>
-          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{s.notes}</p>
+          <p className="caption mb-1">Notes</p>
+          <p className="text-sm text-secondary whitespace-pre-wrap">{s.notes}</p>
         </div>
       )}
 
       <div className="flex justify-end">
-        <button onClick={() => setConfirmDelete(true)} className="btn-ghost text-xs text-red-500 hover:text-red-500">
+        <button onClick={() => setConfirmDelete(true)} className="btn-ghost text-xs text-bad hover:text-bad">
           <Trash2 size={13} /> Delete this set…
         </button>
       </div>
@@ -1905,7 +2065,7 @@ function TireSetForm({ vehicleId, set, odometer, units, onClose, onSaved }) {
       <div>
         <label className="label">Rotate every ({units.distance}, optional)</label>
         <input value={f.rotate_miles} onChange={setV('rotate_miles')} inputMode="numeric" className="input" placeholder="6000" />
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-xs text-tertiary mt-1">
           Counts only while this set is on the car, from the last service tagged to it with a “rotation” item.
         </p>
       </div>
@@ -1919,13 +2079,13 @@ function TireSetForm({ vehicleId, set, odometer, units, onClose, onSaved }) {
             {[[0.25, '¼ used'], [0.5, 'half used'], [0.75, '¾ used']].map(([frac, label]) => (
               <button key={frac} type="button"
                 onClick={() => setF((s) => ({ ...s, baseline_miles: String(Math.round(expected * frac)) }))}
-                className="chip chip-off text-[11px]">
+                className="chip chip-off text-xs">
                 {label}
               </button>
             ))}
           </div>
         )}
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-xs text-tertiary mt-1">
           For tires you were already running before you started tracking. A rough guess is fine — everything from
           here on gets added to it.
         </p>
@@ -1934,14 +2094,14 @@ function TireSetForm({ vehicleId, set, odometer, units, onClose, onSaved }) {
 
       {set ? (
         <label className="flex items-center gap-2 text-sm py-1">
-          <input type="checkbox" checked={f.is_retired} onChange={(e) => setF((s) => ({ ...s, is_retired: e.target.checked }))} className="accent-brand w-4 h-4" />
+          <input type="checkbox" checked={f.is_retired} onChange={(e) => setF((s) => ({ ...s, is_retired: e.target.checked }))} className="accent-accent w-4 h-4" />
           Retired
-          <span className="text-xs text-slate-400">— worn out or sold; keeps its history</span>
+          <span className="text-xs text-tertiary">— worn out or sold; keeps its history</span>
         </label>
       ) : (
-        <div className="border-t border-slate-200 dark:border-white/[0.06] pt-3">
+        <div className="border-t border-hairline/50 pt-3">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={mount} onChange={(e) => setMount(e.target.checked)} className="accent-brand w-4 h-4" />
+            <input type="checkbox" checked={mount} onChange={(e) => setMount(e.target.checked)} className="accent-accent w-4 h-4" />
             Put this set on the car now
           </label>
           {mount && (
@@ -1950,12 +2110,12 @@ function TireSetForm({ vehicleId, set, odometer, units, onClose, onSaved }) {
               <div><label className="label">At odometer</label><input value={mountOdo} onChange={(e) => setMountOdo(e.target.value)} inputMode="numeric" className="input" /></div>
             </div>
           )}
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-xs text-tertiary mt-1">
             {mount ? 'Miles start counting from this reading.' : 'Leave off for a set you already own but that is not on the car — log a changeover when it goes on.'}
           </p>
         </div>
       )}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
@@ -2002,12 +2162,12 @@ function ChangeoverForm({ vehicleId, sets, mountedId, odometer, change, onClose,
         <div><label className="label">Odometer</label><input value={odo} onChange={(e) => setOdo(e.target.value)} inputMode="numeric" className="input" /></div>
       </div>
       <div><label className="label">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" /></div>
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-tertiary">
         {change
           ? 'Moving the date or odometer re-splits the miles between this set and whatever was on either side of it.'
           : 'The set that was on until now stops counting here, and this one starts. Logging an old swap you forgot works the same way — the totals re-sort themselves.'}
       </p>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
@@ -2043,9 +2203,9 @@ function TreadForm({ vehicleId, setId, odometer, onClose, onSaved }) {
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-slate-400">Left/right front and rear. Fill in as many as you measured.</p>
+      <p className="text-xs text-tertiary">Left/right front and rear. Fill in as many as you measured.</p>
       <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
@@ -2078,7 +2238,7 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
           <div key={r.id} className="card p-3 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-medium tabular-nums">{distance(r.odometer)}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{fmtDate(r.date)}{r.notes ? ` · ${r.notes}` : ''}</p>
+              <p className="text-xs text-secondary truncate">{fmtDate(r.date)}{r.notes ? ` · ${r.notes}` : ''}</p>
             </div>
             <RowActions onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
           </div>
@@ -2086,25 +2246,27 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
       </div>
 
       {/* Desktop: full table */}
-      <div className="card overflow-x-auto hidden sm:block">
+      <div className="card overflow-hidden hidden sm:block">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left border-b border-slate-200 dark:border-white/[0.06]">
+            <tr className="text-left bg-inset/60">
               {ODO_COLUMNS.map((c) => <Th key={c.k} label={c.label} k={c.k} sort={sort} onSort={sortBy} />)}
-              <th className="px-3 py-2"></th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? <EmptyRow colSpan={4} label="No odometer readings yet." /> : sorted.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 dark:border-white/[0.04] last:border-0">
-                <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-3 py-2 tabular-nums">{distance(r.odometer)}</td>
-                <td className="px-3 py-2 text-slate-500">{r.notes || '—'}</td>
-                <td className="px-3 py-2"><RowActions compact onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
+              <tr key={r.id} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
+                <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</td>
+                <td className="px-4 py-3 tabular-nums">{distance(r.odometer)}</td>
+                <td className="px-4 py-3 text-secondary">{r.notes || '—'}</td>
+                <td className="px-4 py-3"><RowActions compact onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       {form && (
         <OdometerForm vehicleId={vehicleId} record={form.id ? form : null}
@@ -2148,7 +2310,7 @@ function OdometerForm({ vehicleId, record, onClose, onSaved }) {
       <div><label className="label">Reading</label><input ref={readingRef} value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
       <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
       <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }
@@ -2193,9 +2355,11 @@ function ReminderTab({ vehicleId, distance, currentOdo, onOpenTires, onAddTireSe
                 </div>
                 <ReminderProgressBar r={r} progress={progress} />
                 <div className="flex items-center justify-between gap-2 mt-1">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 min-w-0 truncate">
+                  <p className="text-xs text-secondary min-w-0 truncate">
                     {r.is_recurring ? <>Every {intervalText(r, units)}</> : 'One-time'}
-                    {r.is_recurring && r.has_baseline && r.last_done_date && (
+                    {/* Coerced: these flags arrive from SQLite as 0/1, and a bare
+                        `0 &&` renders a literal "0" next to the label. */}
+                    {!!(r.is_recurring && r.has_baseline && r.last_done_date) && (
                       <> · last done {fmtDate(r.last_done_date)}{r.last_done_odometer != null && <> at {distance(r.last_done_odometer)}</>}</>
                     )}
                     {r.source === 'tire' && !r.last_done_date && <> · counted from the miles on this set</>}
@@ -2203,7 +2367,7 @@ function ReminderTab({ vehicleId, distance, currentOdo, onOpenTires, onAddTireSe
                       <> · due by {fmtDate(r.due_date)} or at {distance(r.due_odometer)}</>
                     )}
                     {!r.has_baseline && (
-                      <span className="text-amber-500"> · log this service or set a starting point</span>
+                      <span className="text-warn"> · log this service or set a starting point</span>
                     )}
                   </p>
                   {/* Tire reminders have no row to edit — they follow the set. */}
@@ -2296,7 +2460,7 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
       <div>
         <label className="label">Service</label>
         <Combobox value={f.description} onChange={(v) => setF((s) => ({ ...s, description: v }))} options={serviceOptions} placeholder="Oil change" />
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-xs text-tertiary mt-1">
           {isNewService
             ? <>“{f.description.trim()}” will be saved as a new service type.</>
             : 'Match a service item so the reminder advances automatically when you log it.'}
@@ -2304,9 +2468,9 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
       </div>
 
       {suggestTires && (
-        <div className="rounded-lg border border-brand/40 bg-brand/5 p-3">
-          <p className="text-xs font-medium mb-1 flex items-center gap-1.5"><Disc3 size={13} className="text-brand" /> Track this as a tire set instead?</p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="rounded-lg border border-accent/40 bg-accent/5 p-3">
+          <p className="text-xs font-medium mb-1 flex items-center gap-1.5"><Disc3 size={13} className="text-accent" /> Track this as a tire set instead?</p>
+          <p className="text-xs text-secondary">
             {tireSetCount > 0
               ? 'Your tire sets already put a rotation reminder on this page — against whichever set is on the car, so the countdown pauses while a set is in the garage.'
               : 'A tire set counts miles per physical set (summer vs winter), reminds you to rotate whichever one is on the car, and records which set each rotation was done to. A plain reminder can’t tell them apart.'}
@@ -2314,18 +2478,18 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
           <button type="button" onClick={onAddTireSet} className="btn-primary text-xs mt-2">
             <Plus size={13} /> {tireSetCount > 0 ? 'Add another tire set' : 'Add a tire set'}
           </button>
-          <p className="text-[11px] text-slate-400 mt-1.5">Or carry on below for an ordinary reminder.</p>
+          <p className="text-xs text-tertiary mt-1.5">Or carry on below for an ordinary reminder.</p>
         </div>
       )}
 
       <div>
         <label className="label">Repeats</label>
-        <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-700/40">
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-inset/40">
           {[{ v: true, label: 'Recurring' }, { v: false, label: 'One-time' }].map((o) => (
             <button key={String(o.v)} type="button" onClick={() => setF((s) => ({ ...s, is_recurring: o.v }))}
               className={`h-9 rounded-md text-sm font-medium transition-colors ${
-                f.is_recurring === o.v ? 'bg-white dark:bg-slate-800 text-brand shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-              }`}>
+ f.is_recurring === o.v ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'
+ }`}>
               {o.label}
             </button>
           ))}
@@ -2339,14 +2503,14 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
                 <input value={f.interval_miles} onChange={set('interval_miles')} inputMode="numeric" className="input pr-12" placeholder="5000" aria-label="Distance interval" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">{units.distance}</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tertiary pointer-events-none">{units.distance}</span>
               </div>
               <div className="relative">
                 <input value={f.interval_months} onChange={set('interval_months')} inputMode="numeric" className="input pr-16" placeholder="6" aria-label="Interval in months" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">months</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tertiary pointer-events-none">months</span>
               </div>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Fill in one or both — it comes due at whichever happens first.</p>
+            <p className="text-xs text-tertiary mt-1">Fill in one or both — it comes due at whichever happens first.</p>
           </div>
 
           {!showBaseline ? (
@@ -2354,8 +2518,8 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
               <Plus size={12} /> Set a starting point (last done)
             </button>
           ) : (
-            <div className="space-y-3 border-t border-slate-200 dark:border-white/[0.06] pt-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Last done (used until you log this service):</p>
+            <div className="space-y-3 border-t border-hairline/50 pt-3">
+              <p className="text-xs text-secondary">Last done (used until you log this service):</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Date</label><input type="date" value={f.base_date} onChange={set('base_date')} className="input" /></div>
                 <div><label className="label">Odometer</label><input value={f.base_odometer} onChange={set('base_odometer')} inputMode="numeric" className="input" /></div>
@@ -2370,13 +2534,13 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
             <div><input type="date" value={f.due_date} onChange={set('due_date')} className="input" aria-label="Due date" /></div>
             <div className="relative">
               <input value={f.due_odometer} onChange={set('due_odometer')} inputMode="numeric" className="input pr-8" placeholder="55000" aria-label="Due odometer" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">{units.distance}</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tertiary pointer-events-none">{units.distance}</span>
             </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">A date, an odometer reading, or both. It won't repeat after it's due.</p>
+          <p className="text-xs text-tertiary mt-1">A date, an odometer reading, or both. It won't repeat after it's due.</p>
         </div>
       )}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </Modal>
   )
 }

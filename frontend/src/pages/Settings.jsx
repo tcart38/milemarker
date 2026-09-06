@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
-import { Check, Plus, X, Download, Upload, ArrowLeft, Pencil } from 'lucide-react'
+import { Check, Plus, X, Download, Upload, ArrowLeft, Pencil, Monitor, SunMedium, MoonStar } from 'lucide-react'
 import { updateSettings, getVehicles, getFuel, getRecords, getReminders, importLubeLogger, importCsv, createServiceType, updateServiceType, mergeServiceType, deleteServiceType, undoServiceTypeOp } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
@@ -8,10 +8,26 @@ import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 function SettingsCard({ title, description, children }) {
   return (
-    <div className="card p-4">
-      <p className="stat-label">{title}</p>
-      {description && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{description}</p>}
-      <div className="mt-3 space-y-4">{children}</div>
+    <section>
+      <h2 className="caption px-1 mb-2">{title}</h2>
+      <div className="card p-4 sm:p-5">
+        {description && <p className="text-sm text-secondary -mt-0.5 mb-3">{description}</p>}
+        <div className="space-y-4">{children}</div>
+      </div>
+    </section>
+  )
+}
+
+/* A settings row: label on the left, control on the right — the iOS layout,
+   which stacks on narrow screens so long selects still have room. */
+function SettingRow({ label, hint, children }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4">
+      <div className="min-w-0 sm:flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        {hint && <p className="footnote mt-0.5">{hint}</p>}
+      </div>
+      <div className="sm:w-52 flex-shrink-0">{children}</div>
     </div>
   )
 }
@@ -86,11 +102,11 @@ function ServiceTypes() {
   const chip = (t, highlight) => (
     <span key={t.id} className={`chip ${highlight ? 'chip-on' : 'chip-off'} !cursor-default gap-1 pr-1.5`}>
       {t.name}
-      {t.record_count > 0 && <span className="text-slate-400 tabular-nums">×{t.record_count}</span>}
+      {t.record_count > 0 && <span className="text-tertiary tabular-nums">×{t.record_count}</span>}
       {t.needs_review === 1 && (
         <button
           onClick={() => approve(t)} disabled={busy}
-          className="p-0.5 rounded-full hover:bg-brand/20"
+          className="p-0.5 rounded-full hover:bg-accent/20"
           title={`Keep ${t.name} as a type`} aria-label={`Keep ${t.name} as a type`}
         >
           <Check size={12} />
@@ -98,7 +114,7 @@ function ServiceTypes() {
       )}
       <button
         onClick={() => startEdit(t)} disabled={busy}
-        className="p-0.5 rounded-full hover:bg-brand/20"
+        className="p-0.5 rounded-full hover:bg-accent/20"
         title={`Rename or merge ${t.name}`} aria-label={`Rename or merge ${t.name}`}
       >
         <Pencil size={11} />
@@ -106,7 +122,7 @@ function ServiceTypes() {
       {t.record_count === 0 && t.reminder_count === 0 && (
         <button
           onClick={() => setToDelete(t)} disabled={busy}
-          className="p-0.5 rounded-full hover:bg-brand/20"
+          className="p-0.5 rounded-full hover:bg-accent/20"
           title={`Delete ${t.name}`} aria-label={`Delete ${t.name}`}
         >
           <X size={12} />
@@ -131,12 +147,12 @@ function ServiceTypes() {
         />
         <button onClick={() => add(draft)} disabled={busy || !draft.trim()} className="btn-primary disabled:opacity-50"><Plus size={14} /> Add</button>
       </div>
-      {error && <p className="text-xs text-red-500 !mt-2">{error}</p>}
+      {error && <p className="text-xs text-bad !mt-2">{error}</p>}
       {message && (
-        <p className="text-xs text-emerald-500 !mt-2 flex items-center gap-2">
+        <p className="text-xs text-ok !mt-2 flex items-center gap-2">
           <Check size={12} className="shrink-0" /> {message.text}
           {message.undoId && (
-            <button onClick={undo} disabled={busy} className="underline hover:no-underline text-brand shrink-0">
+            <button onClick={undo} disabled={busy} className="underline hover:no-underline text-accent shrink-0">
               Undo
             </button>
           )}
@@ -144,7 +160,7 @@ function ServiceTypes() {
       )}
 
       {editing && (
-        <div className="rounded-lg border border-brand/40 bg-brand/5 p-3 space-y-2">
+        <div className="rounded-lg border border-accent/40 bg-accent/5 p-3 space-y-2">
           <p className="text-sm">
             Rename <strong>{editing.name}</strong>
             {editing.record_count > 0 && <> — used by {editing.record_count} record{editing.record_count === 1 ? '' : 's'}</>}.
@@ -165,8 +181,8 @@ function ServiceTypes() {
             </button>
             <button onClick={() => setEditing(null)} className="btn-ghost">Cancel</button>
           </div>
-          <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-brand w-3.5 h-3.5" />
+          <label className="flex items-center gap-2 text-xs text-secondary">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-accent w-3.5 h-3.5" />
             Map future imports of “{editing.name}” to the new name
           </label>
         </div>
@@ -178,7 +194,7 @@ function ServiceTypes() {
           <div className="flex flex-wrap gap-1.5">
             {needsReview.map((t) => chip(t, true))}
           </div>
-          <p className="text-[11px] text-slate-400 mt-2">
+          <p className="text-xs text-tertiary mt-2">
             Keep one as its own type (✓), or rename it (✏️) into a type you already use — that re-tags its records,
             and the old spelling is remembered so future imports map correctly on their own.
           </p>
@@ -190,7 +206,7 @@ function ServiceTypes() {
         <div className="flex flex-wrap gap-1.5">
           {reviewed.map((t) => chip(t, false))}
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">
+        <p className="text-xs text-tertiary mt-2">
           Unused types can be deleted (✕); types in use can be renamed or merged instead, which updates their records.
         </p>
       </div>
@@ -269,14 +285,14 @@ function DataCard() {
         <div className="flex-1" />
         <input ref={restoreRef} type="file" accept=".zip,application/zip" hidden
           onChange={(e) => setRestoreFile(e.target.files[0] || null)} />
-        <button onClick={() => restoreRef.current?.click()} disabled={restoring} className="btn-ghost text-amber-500 hover:text-amber-500">
+        <button onClick={() => restoreRef.current?.click()} disabled={restoring} className="btn-ghost text-warn hover:text-warn">
           <Upload size={14} /> Restore backup…
         </button>
       </div>
 
       {restoreFile && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
-          <p className="text-sm text-amber-600 dark:text-amber-400">
+        <div className="rounded-lg border border-warn/40 bg-warn/[0.06] p-3 space-y-2">
+          <p className="text-sm text-warn">
             Restore <strong>{restoreFile.name}</strong>? This <strong>replaces all current data</strong> — vehicles, records, and attachments — with the backup's contents.
           </p>
           <div className="flex gap-2">
@@ -287,9 +303,9 @@ function DataCard() {
           </div>
         </div>
       )}
-      {restored && <p className="text-sm text-emerald-500 flex items-center gap-1.5"><Check size={14} /> Restored — reloading…</p>}
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      <p className="text-[11px] text-slate-400">JSON export is readable everywhere but doesn't include attachments; the zip backup includes everything and can be restored here.</p>
+      {restored && <p className="text-sm text-ok flex items-center gap-1.5"><Check size={14} /> Restored — reloading…</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
+      <p className="text-xs text-tertiary">JSON export is readable everywhere but doesn't include attachments; the zip backup includes everything and can be restored here.</p>
     </SettingsCard>
   )
 }
@@ -355,16 +371,16 @@ function CsvImportCard() {
       </div>
 
       {result && (
-        <p className="text-sm text-emerald-500 flex items-center gap-1.5">
+        <p className="text-sm text-ok flex items-center gap-1.5">
           <Check size={14} />
           {counts.length === 0 ? 'Nothing new to import.' : `Imported ${counts.map(([l, n]) => `${n} ${l}${n === 1 ? '' : 's'}`).join(', ')}.`}
-          {result.skipped_duplicates > 0 && <span className="text-slate-400"> {result.skipped_duplicates} duplicate{result.skipped_duplicates === 1 ? '' : 's'} skipped.</span>}
+          {result.skipped_duplicates > 0 && <span className="text-tertiary"> {result.skipped_duplicates} duplicate{result.skipped_duplicates === 1 ? '' : 's'} skipped.</span>}
         </p>
       )}
-      {error && <p className="text-xs text-red-500 whitespace-pre-wrap">{error}</p>}
+      {error && <p className="text-xs text-bad whitespace-pre-wrap">{error}</p>}
 
-      <div className="rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-white/[0.06] p-3 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
-        <p className="font-medium text-slate-700 dark:text-slate-200">Reading receipts with Claude</p>
+      <div className="rounded-lg bg-inset border border-hairline/50 p-3 text-xs text-secondary space-y-1.5">
+        <p className="font-medium text-primary">Reading receipts with Claude</p>
         <p>
           There's no AI built into MileMarker — instead, a ready-made skill teaches Claude to turn photos of your
           car receipts into this CSV. Install it, then give Claude your receipt photos in any session and ask it to
@@ -372,7 +388,7 @@ function CsvImportCard() {
           back a CSV to import here.
         </p>
         <p>
-          <a href="/milemarker-receipts-skill.md" download="SKILL.md" className="text-brand hover:underline">
+          <a href="/milemarker-receipts-skill.md" download="SKILL.md" className="text-accent hover:underline">
             Download the skill
           </a>
           {' '}and save it as <code>~/.claude/skills/milemarker-receipts/SKILL.md</code> (Claude Code), or add it to a
@@ -380,7 +396,7 @@ function CsvImportCard() {
         </p>
       </div>
 
-      <details className="text-xs text-slate-500 dark:text-slate-400">
+      <details className="text-xs text-secondary">
         <summary className="cursor-pointer select-none">CSV format</summary>
         <div className="mt-2 space-y-2">
           <p>
@@ -390,11 +406,11 @@ function CsvImportCard() {
             Fuel rows need odometer, quantity, and cost. An optional <code>vehicle</code> column (nickname, plate, or "year make model") overrides the vehicle picked above.
             Re-importing the same rows won't create duplicates.
           </p>
-          <pre className="p-2 rounded-lg bg-slate-100 dark:bg-slate-900/60 overflow-x-auto">{CSV_TEMPLATE}</pre>
+          <pre className="p-2 rounded-lg bg-inset overflow-x-auto">{CSV_TEMPLATE}</pre>
           <a
             href={`data:text/csv;charset=utf-8,${encodeURIComponent(CSV_TEMPLATE)}`}
             download="milemarker-template.csv"
-            className="text-brand hover:underline"
+            className="text-accent hover:underline"
           >
             Download template
           </a>
@@ -443,21 +459,21 @@ function ImportCard() {
 
       {result && (
         <div className="text-sm space-y-1">
-          <p className="text-emerald-500 flex items-center gap-1.5">
+          <p className="text-ok flex items-center gap-1.5">
             <Check size={14} />
             {counts.length === 0
               ? 'Nothing new to import.'
               : `Imported ${counts.map(([label, n]) => `${n} ${label}${n === 1 ? '' : 's'}`).join(', ')}.`}
           </p>
           {result.skipped_vehicles?.length > 0 && (
-            <p className="text-xs text-slate-400">Already here (skipped): {result.skipped_vehicles.join('; ')}</p>
+            <p className="text-xs text-tertiary">Already here (skipped): {result.skipped_vehicles.join('; ')}</p>
           )}
           {result.missing_files?.length > 0 && (
-            <p className="text-xs text-amber-500">Files referenced but not found in the folder: {result.missing_files.join(', ')}</p>
+            <p className="text-xs text-warn">Files referenced but not found in the folder: {result.missing_files.join(', ')}</p>
           )}
         </div>
       )}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-bad">{error}</p>}
     </SettingsCard>
   )
 }
@@ -466,7 +482,7 @@ export default function Settings() {
   const { setCrumb } = useOutletContext()
   const navigate = useNavigate()
   const { settings, setSettings, refresh } = useSettings()
-  const { theme, setTheme } = useTheme()
+  const { theme, resolved, setTheme } = useTheme()
   const [saved, setSaved] = useState(false)
 
   useEffect(() => { setCrumb('Settings'); return () => setCrumb(null) }, [setCrumb])
@@ -479,39 +495,52 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 1500)
   }
 
-  const Field = ({ label, k, options }) => (
-    <div>
-      <label className="label">{label}</label>
-      <select value={settings[k]} onChange={(e) => save({ [k]: e.target.value })} className="input max-w-xs">
+  const Field = ({ label, hint, k, options }) => (
+    <SettingRow label={label} hint={hint}>
+      <select value={settings[k]} onChange={(e) => save({ [k]: e.target.value })} className="input">
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
-    </div>
+    </SettingRow>
   )
 
   return (
-    <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center gap-2 mb-1">
         <button
           onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/garage'))}
-          className="btn-ghost -ml-2" title="Back" aria-label="Back"
+          className="btn-icon -ml-2" title="Back" aria-label="Back"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={17} />
         </button>
-        <h1 className="text-lg font-semibold">Settings</h1>
-        {saved && <span className="text-xs text-emerald-500 flex items-center gap-1"><Check size={12} /> Saved</span>}
+        <h1 className="title-lg">Settings</h1>
+        {saved && (
+          <span className="badge badge-service animate-fade"><Check size={12} /> Saved</span>
+        )}
       </div>
 
       <SettingsCard title="Units & display">
         <Field label="Distance unit" k="distance_unit" options={[{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }]} />
         <Field label="Volume unit" k="volume_unit" options={[{ value: 'gal', label: 'Gallons' }, { value: 'L', label: 'Litres' }]} />
         <Field label="Currency symbol" k="currency_symbol" options={[{ value: '$', label: '$ (USD/CAD/AUD)' }, { value: '€', label: '€ (EUR)' }, { value: '£', label: '£ (GBP)' }]} />
-        <div>
-          <label className="label">Theme</label>
-          <select value={theme} onChange={(e) => setTheme(e.target.value)} className="input max-w-xs">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </div>
+        <SettingRow label="Appearance" hint={theme === 'system' ? `Following your device — currently ${resolved}` : null}>
+          <div className="segmented w-full">
+            {[
+              { v: 'system', label: 'System', icon: Monitor },
+              { v: 'light', label: 'Light', icon: SunMedium },
+              { v: 'dark', label: 'Dark', icon: MoonStar },
+            ].map((o) => (
+              <button
+                key={o.v}
+                onClick={() => setTheme(o.v)}
+                aria-pressed={theme === o.v}
+                className={`segment flex-1 px-2 ${theme === o.v ? 'segment-on' : ''}`}
+              >
+                <o.icon size={13} className="flex-shrink-0" />
+                <span className="hidden xs:inline sm:inline">{o.label}</span>
+              </button>
+            ))}
+          </div>
+        </SettingRow>
       </SettingsCard>
 
       <ServiceTypes />
@@ -519,7 +548,7 @@ export default function Settings() {
       <ImportCard />
       <DataCard />
 
-      <p className="text-xs text-slate-400 dark:text-slate-500">MileMarker v{settings.version || '—'}</p>
+      <p className="footnote text-center pt-2 pb-4">MileMarker v{settings.version || '—'}</p>
     </div>
   )
 }
