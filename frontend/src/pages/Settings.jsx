@@ -515,19 +515,23 @@ function NetworkCard() {
       title="Network"
       description="Using a custom domain through a reverse proxy? Add it here so MileMarker accepts it. Separate names with commas. Start with a dot (.example.com) to allow a whole domain."
     >
-      <div className="flex gap-2">
-        <input
-          className="input flex-1"
-          placeholder="milemarker.example.com"
-          value={value}
-          onChange={(e) => { setValue(e.target.value); setStatus(null) }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && dirty) save() }}
-          spellCheck={false}
-          autoCapitalize="off"
-        />
-        <button className="btn-primary disabled:opacity-50" onClick={save} disabled={!dirty}>Save</button>
-      </div>
-      {status && <p className="footnote">{status}</p>}
+      <Field>
+        <FieldLabel htmlFor="allowed-hosts" className="sr-only">Allowed hostnames</FieldLabel>
+        <div className="flex gap-2">
+          <Input
+            id="allowed-hosts"
+            className="flex-1"
+            placeholder="milemarker.example.com"
+            value={value}
+            onChange={(e) => { setValue(e.target.value); setStatus(null) }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && dirty) save() }}
+            spellCheck={false}
+            autoCapitalize="off"
+          />
+          <Button onClick={save} disabled={!dirty}>Save</Button>
+        </div>
+        {status && <FieldDescription className="text-xs">{status}</FieldDescription>}
+      </Field>
     </SettingsCard>
   )
 }

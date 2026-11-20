@@ -41,8 +41,8 @@ export function blockedPage(host) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MileMarker: hostname not allowed</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:4rem auto;padding:0 1.25rem;color:#1d1d1f}
-code{background:#f2f2f4;padding:.1em .35em;border-radius:4px}@media(prefers-color-scheme:dark){body{background:#000;color:#f5f5f7}code{background:#1c1c1e}}</style>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:4rem auto;padding:0 1.25rem;color:#09090b}
+code{background:#f4f4f5;padding:.1em .35em;border-radius:4px}@media(prefers-color-scheme:dark){body{background:#09090b;color:#fafafa}code{background:#27272a}}</style>
 </head><body>
 <h1 style="font-size:1.4rem">Allow <code>${h}</code> in MileMarker</h1>
 <p>MileMarker only answers to hostnames you've approved. This protects your data from other websites, since MileMarker has no login by default.</p>
@@ -51,6 +51,6 @@ code{background:#f2f2f4;padding:.1em .35em;border-radius:4px}@media(prefers-colo
 <li>Go to <b>Settings → Network</b> and add <code>${h}</code>.</li>
 <li>Reload this page.</li>
 </ol>
-<p style="color:#86868b;font-size:.9rem">You can also set the <code>ALLOWED_HOSTS</code> container variable instead.</p>
+<p style="color:#71717a;font-size:.9rem">You can also set the <code>ALLOWED_HOSTS</code> container variable instead.</p>
 </body></html>`
 }
