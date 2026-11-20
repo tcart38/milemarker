@@ -15,6 +15,7 @@ import settingsRouter from './routes/settings.js'
 import serviceTypesRouter from './routes/service-types.js'
 import importRouter from './routes/import.js'
 import backupRouter from './routes/backup.js'
+import { setupAuth } from './auth/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -23,7 +24,15 @@ initDb()
 const app = express()
 app.disable('x-powered-by')
 
-// There is no auth: the browser's same-origin policy is the only thing keeping
+// Behind a reverse proxy (nginx, Traefik, ...) trust X-Forwarded-* from
+// private-network addresses, so HTTPS is detected for Secure cookies and the
+// login rate limit sees the real client IP. Override with TRUST_PROXY (any
+// Express "trust proxy" value, e.g. 1, or false to ignore forwarded headers).
+const trustProxy = process.env.TRUST_PROXY ?? 'loopback, linklocal, uniquelocal'
+app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy === 'false' ? false : trustProxy)
+
+// Login is optional and off by default, so the browser's same-origin policy is
+// often the only thing keeping
 // random websites from driving this API. So no CORS (the frontend is always
 // same-origin), and a Host-header allowlist to block DNS-rebinding attacks.
 // Extra hostnames come from Settings → Network in the app, or from ALLOWED_HOSTS
@@ -38,6 +47,10 @@ app.use((req, res, next) => {
 })
 
 app.use(express.json())
+
+// Optional login, turned on from Settings (off until an account is created).
+// Must come before the API routers so it can gate them.
+const auth = setupAuth(app)
 
 app.use('/api/vehicles', vehiclesRouter)
 // Nested per-vehicle resources
@@ -62,4 +75,5 @@ if (config.isProd) {
 app.listen(config.port, () => {
   console.log(`MileMarker running on http://localhost:${config.port}`)
   console.log(`  Data dir : ${config.dataDir}`)
+  console.log(`  Login    : ${auth.forcedOff ? 'off (AUTH_DISABLED)' : auth.enabled() ? 'on' : 'off'}`)
 })

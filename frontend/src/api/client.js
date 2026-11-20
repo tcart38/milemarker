@@ -1,17 +1,35 @@
 const BASE = '/api'
 
+// With login enabled, a 401 means the session ended (expired or signed out in
+// another tab). AuthContext listens for this and swaps in the login screen.
+export const UNAUTHORIZED_EVENT = 'milemarker:unauthorized'
+const noteAuth = (res) => {
+  if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+  return res
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
+  // /auth/* answers 401 for a wrong password; that's not a lost session.
+  const check = path.startsWith('/auth/') ? (r) => r : noteAuth
+  const res = check(await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
-  })
+  }))
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || `HTTP ${res.status}`)
   }
   return res.status === 204 ? null : res.json()
 }
+
+// Auth (optional login)
+export const getAuthStatus = () => request('/auth/status')
+export const login = (username, password) => request('/auth/login', { method: 'POST', body: { username, password } })
+export const logout = () => request('/auth/logout', { method: 'POST' })
+export const setupAuth = (username, password) => request('/auth/setup', { method: 'POST', body: { username, password } })
+export const updateAccount = (body) => request('/auth/account', { method: 'POST', body })
+export const disableAuth = (current_password) => request('/auth/disable', { method: 'POST', body: { current_password } })
 
 // Vehicles
 export const getVehicles = (includeSold = false) => request(includeSold ? '/vehicles?all=1' : '/vehicles')
@@ -58,7 +76,7 @@ export const getAttachments = (vId, type, rid) => request(`/attachments/${vId}/$
 export const uploadAttachment = async (vId, type, rid, file) => {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(`/api/attachments/${vId}/${type}/${rid}`, { method: 'POST', body: form })
+  const res = noteAuth(await fetch(`/api/attachments/${vId}/${type}/${rid}`, { method: 'POST', body: form }))
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`)
   return res.json()
 }
@@ -82,7 +100,7 @@ export const importCsv = async (vehicleId, file) => {
   const form = new FormData()
   form.append('vehicle_id', vehicleId)
   form.append('file', file)
-  const res = await fetch('/api/import/csv', { method: 'POST', body: form })
+  const res = noteAuth(await fetch('/api/import/csv', { method: 'POST', body: form }))
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const detail = data.errors ? ' ' + data.errors.map((e) => `Row ${e.row}: ${e.error}`).join(' · ') : ''
@@ -95,7 +113,7 @@ export const importCsv = async (vehicleId, file) => {
 export const importLubeLogger = async (files) => {
   const form = new FormData()
   for (const f of files) form.append('files', f, f.webkitRelativePath || f.name)
-  const res = await fetch('/api/import/lubelogger', { method: 'POST', body: form })
+  const res = noteAuth(await fetch('/api/import/lubelogger', { method: 'POST', body: form }))
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
   return data

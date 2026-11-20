@@ -70,6 +70,8 @@ Single container, no compose needed:
 | `MAX_UPLOAD_SIZE_MB` | `1024` | Max size of a single imported/restored file in MB (raise it if a LubeLogger photo or the database itself trips "File too large") |
 | `MAX_IMPORT_FILES` | `100000` | Max number of files in one LubeLogger import |
 | `NODE_ENV` | — | `production` in Docker; enables serving the built frontend |
+| `AUTH_DISABLED` | *(empty)* | `true` turns the optional login off and removes its account; use it if you're locked out (see Optional login) |
+| `TRUST_PROXY` | `loopback, linklocal, uniquelocal` | Which proxies' `X-Forwarded-*` headers to trust (Express [`trust proxy`](https://expressjs.com/en/guide/behind-proxies.html)); `false` ignores them |
 
 Units, currency, service types, and theme are configured in the app under **Settings**.
 
@@ -99,7 +101,7 @@ server {
 }
 ```
 
-Keep the `X-Forwarded-Proto` line. Without login enabled, MileMarker uses no cookies, sessions, or CORS, so HTTPS needs no other settings. With login enabled, that header is what marks the session cookie `Secure`.
+Keep the `X-Forwarded-Proto` line. Without login enabled, MileMarker uses no cookies, sessions, or CORS, so HTTPS needs no other settings. With login enabled, that header is what marks the session cookie `Secure` (see [Optional login](#optional-login)).
 
 ## Importing your data
 
@@ -111,11 +113,25 @@ Keep the `X-Forwarded-Proto` line. Without login enabled, MileMarker uses no coo
 
 Settings → *Data* → **Download backup** produces a zip containing the database and every attachment. **Restore backup** replaces all current data with a backup's contents (the previous database is kept on disk as `milemarker.db.pre-restore`, a one-level undo). Back up before major imports.
 
+## Optional login
+
+Login is **off by default**, so existing installs keep working unchanged. To turn it on, open **Settings → Sign-in → Turn on sign-in** and choose a username and password. There's one account, which sees the whole garage. No container variables or commands are needed.
+
+Once it's on, every device has to sign in. The same Settings card lets you sign out, change the password (which signs out your other devices) or turn sign-in off again; the last two ask for the current password. Sign-ins last 30 days from the last visit and survive restarts. Sign-in attempts are rate-limited to 10 failures per 15 minutes per IP.
+
+The account and sessions are kept in `DATA_DIR/auth.db`, separate from the main database, so backups never contain them and restoring a backup doesn't change your login.
+
+**Locked out?** Add the container variable `AUTH_DISABLED` = `true` (on Unraid: edit the container → *Add another Path, Port, Variable...* → Variable) and apply. That removes the account and keeps sign-in off. Then remove the variable, apply again, and set up a new password in Settings.
+
+Behind an HTTPS reverse proxy, forward `X-Forwarded-Proto` (and `X-Forwarded-For`) so the session cookie is marked `Secure` and rate limiting sees real client IPs. Proxies on private-network addresses, the usual Docker or LAN setup, are trusted by default; adjust with `TRUST_PROXY` if yours isn't.
+
+Built on [express-session](https://github.com/expressjs/session), [bcryptjs](https://github.com/dcodeIO/bcrypt.js) and [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit).
+
 ## Security model
 
-MileMarker has **no authentication** — it's designed to run on a trusted home LAN. Mitigations built in: no CORS (browsers can't drive the API cross-origin), a `Host`-header allowlist blocking DNS-rebinding attacks (localhost, `.local` names, and IP literals allowed by default; add reverse-proxy hostnames via `ALLOWED_HOSTS`), and an unprivileged container user.
+Without login enabled, MileMarker has **no authentication**; it's designed to run on a trusted home LAN. Mitigations built in: no CORS (browsers can't drive the API cross-origin), a `Host`-header allowlist blocking DNS-rebinding attacks (localhost, `.local` names, and IP literals allowed by default; add reverse-proxy hostnames via `ALLOWED_HOSTS`), and an unprivileged container user.
 
-**Do not port-forward this to the internet.** For remote access, put it behind a reverse proxy with authentication, or use a VPN/Tailscale.
+**Do not port-forward this to the internet without login.** For remote access, turn on the optional login above, put it behind a reverse proxy with its own authentication, or use a VPN/Tailscale. Keep the `Host` allowlist on either way.
 
 ## Development
 

@@ -5,10 +5,23 @@ import Garage from './pages/Garage.jsx'
 import VehicleDetail from './pages/VehicleDetail.jsx'
 import Settings from './pages/Settings.jsx'
 import QuickFuel from './pages/QuickFuel.jsx'
+import Login from './pages/Login.jsx'
 import { SettingsProvider } from './context/SettingsContext.jsx'
+import { AuthProvider, useAuth } from './context/AuthContext.jsx'
+
+// Holds the app back until we know whether a login is needed, so nothing
+// fires API calls that would only 401.
+function AuthGate({ children }) {
+  const { status } = useAuth()
+  if (!status) return null
+  if (status.enabled && !status.authenticated) return <Login />
+  return children
+}
 
 export default function App() {
   return (
+    <AuthProvider>
+    <AuthGate>
     <SettingsProvider>
       <BrowserRouter>
         <Routes>
@@ -22,5 +35,7 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </SettingsProvider>
+    </AuthGate>
+    </AuthProvider>
   )
 }
