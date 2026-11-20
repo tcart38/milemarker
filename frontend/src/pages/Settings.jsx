@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
-import { Check, Plus, X, Download, Upload, ArrowLeft, Pencil, Monitor, SunMedium, MoonStar } from 'lucide-react'
+import { Check, Plus, X, Download, Upload, ArrowLeft, Pencil, Monitor, SunMedium, MoonStar, LogOut } from 'lucide-react'
 import { updateSettings, getVehicles, getFuel, getRecords, getReminders, importLubeLogger, importCsv, createServiceType, updateServiceType, mergeServiceType, deleteServiceType, undoServiceTypeOp } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 function SettingsCard({ title, description, children }) {
@@ -478,6 +479,19 @@ function ImportCard() {
   )
 }
 
+// Only shown when login is enabled on the server.
+function AccountCard() {
+  const { status, logout } = useAuth()
+  if (!status?.enabled) return null
+  return (
+    <SettingsCard title="Account">
+      <SettingRow label={`Signed in as ${status.username}`} hint="Sign-in is managed with AUTH_* environment variables.">
+        <button onClick={logout} className="btn-ghost w-full justify-center"><LogOut size={15} /> Sign out</button>
+      </SettingRow>
+    </SettingsCard>
+  )
+}
+
 export default function Settings() {
   const { setCrumb } = useOutletContext()
   const navigate = useNavigate()
@@ -547,6 +561,7 @@ export default function Settings() {
       <CsvImportCard />
       <ImportCard />
       <DataCard />
+      <AccountCard />
 
       <p className="footnote text-center pt-2 pb-4">MileMarker v{settings.version || '—'}</p>
     </div>
