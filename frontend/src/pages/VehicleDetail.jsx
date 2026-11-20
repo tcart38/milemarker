@@ -25,6 +25,23 @@ import TrendChart, { ChartTable, OverlayChart } from '../components/TrendChart.j
 import { Bar } from '../components/Gauge.jsx'
 import { PRESETS } from '../presets.js'
 import { vehicleTitle } from '../vehicles.js'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { NativeSelect } from '@/components/ui/native-select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardHeader, CardTitle, CardAction, CardContent, CardDescription, CardFooter } from '@/components/ui/card'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemActions, ItemGroup } from '@/components/ui/item'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 // Upload any staged files against a saved record.
 async function uploadPending(vehicleId, recordType, recordId, pending) {
@@ -32,6 +49,12 @@ async function uploadPending(vehicleId, recordType, recordId, pending) {
 }
 
 const RECORD_TYPES = ['service', 'repair', 'upgrade']
+// Literal class strings so Tailwind's scanner sees them.
+const TYPE_BADGE = {
+  service: { variant: 'secondary', className: 'bg-success/15 text-success' },
+  repair: { variant: 'destructive', className: '' },
+  upgrade: { variant: 'secondary', className: 'bg-chart-4/15 text-chart-4' },
+}
 const TYPE_LABEL = { service: 'Service', repair: 'Repair', upgrade: 'Upgrade' }
 
 const TABS = [
@@ -112,7 +135,7 @@ export default function VehicleDetail() {
   }, [vehicle, setCrumb])
 
   // Hand the tabs to the shell so they can render as the desktop sidebar. The
-  // segmented control below is the same list, shown only under lg.
+  // tab bar below is the same list, shown only under md.
   useEffect(() => {
     setNav({
       items: TABS.map((t) => ({ ...t, label: t.key === 'fuel' && isEv ? 'Charging' : t.label })),
@@ -122,7 +145,13 @@ export default function VehicleDetail() {
     return () => setNav(null)
   }, [tab, isEv, setNav, setTab])
 
-  if (!vehicle) return <div className="p-6 text-tertiary">Loading…</div>
+  if (!vehicle) return (
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-4 sm:p-6" role="status" aria-label="Loading">
+      <Skeleton className="h-8 w-56" />
+      <Skeleton className="h-4 w-32" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  )
 
   const fab = () => {
     if (tab === 'overview') setTab('fuel')
@@ -132,41 +161,36 @@ export default function VehicleDetail() {
   const tabProps = { pendingAdd, onAddConsumed: consumeAdd }
 
   return (
-    <div className="p-4 sm:p-6 pb-28 sm:pb-6 max-w-5xl mx-auto">
+    <div className="mx-auto w-full max-w-5xl p-4 pb-28 sm:p-6 sm:pb-6">
       <div className="flex items-center gap-3 mb-4 min-w-0">
         <div className="min-w-0 flex-1">
-          <h1 className="title-lg truncate">{vehicleTitle(vehicle)}</h1>
-          <p className="text-sm text-secondary mt-0.5 flex items-center gap-1.5 num">
-            <Gauge size={13} className="text-tertiary flex-shrink-0" />
+          <h1 className="font-heading text-2xl font-semibold tracking-tight truncate">{vehicleTitle(vehicle)}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5 num">
+            <Gauge size={13} className="text-muted-foreground flex-shrink-0" />
             {distance(vehicle.odometer)}
             {!!vehicle.is_archived && (
-              <span className="badge badge-due-soon ml-1">
+              <Badge variant="secondary" className="ml-1 bg-warning/15 text-warning">
                 Sold{vehicle.sold_date ? ` ${fmtDate(vehicle.sold_date)}` : ''}
-              </span>
+              </Badge>
             )}
           </p>
         </div>
-        <button onClick={() => setShowDocs(true)} className="btn-icon flex-shrink-0" title="Photos & documents" aria-label="Photos & documents"><Paperclip size={16} /></button>
-        <button onClick={() => setEditing(true)} className="btn-icon flex-shrink-0" title="Edit vehicle" aria-label="Edit vehicle"><Pencil size={16} /></button>
+        <Button variant="ghost" size="icon-sm" onClick={() => setShowDocs(true)} className="flex-shrink-0" title="Photos & documents" aria-label="Photos & documents"><Paperclip /></Button>
+        <Button variant="ghost" size="icon-sm" onClick={() => setEditing(true)} className="flex-shrink-0" title="Edit vehicle" aria-label="Edit vehicle"><Pencil /></Button>
       </div>
 
-      {/* Apple's segmented control. All six fit a 375px screen once the labels
-          drop to icons-plus-text at the smallest size; it scrolls if they don't. */}
-      <div className="lg:hidden mb-5 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto no-scrollbar">
-        <div className="segmented w-full min-w-max sm:w-auto sm:min-w-0" role="tablist">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`segment flex-1 sm:flex-none sm:px-4 ${tab === t.key ? 'segment-on' : ''}`}
-            >
-              <t.icon size={14} className="flex-shrink-0" />
-              {t.key === 'fuel' && isEv ? 'Charging' : t.label}
-            </button>
-          ))}
-        </div>
+      {/* Mobile section tabs (the sidebar carries them from md up). Scrolls if they don't fit. */}
+      <div className="md:hidden mb-5 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto no-scrollbar">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="w-full min-w-max sm:w-auto sm:min-w-0">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key} className="flex-1 sm:flex-none sm:px-4">
+                <t.icon className="flex-shrink-0" />
+                {t.key === 'fuel' && isEv ? 'Charging' : t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {tab === 'overview' && (
@@ -191,10 +215,11 @@ export default function VehicleDetail() {
         />
       )}
 
-      <button className="fab" onClick={fab} aria-label={FAB_LABEL[tab]}>
-        <Plus size={18} />
+      <Button size="lg" onClick={fab} aria-label={FAB_LABEL[tab]}
+        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 h-12 rounded-full px-5 shadow-lg md:hidden">
+        <Plus />
         {isEv && tab === 'overview' ? 'Log charge' : isEv && tab === 'fuel' ? 'Add charge' : FAB_LABEL[tab]}
-      </button>
+      </Button>
 
       {showDocs && (
         <AttachmentsModal
@@ -218,11 +243,11 @@ export default function VehicleDetail() {
           title="Delete vehicle?"
           onClose={() => setConfirmDelete(false)}
           footer={<>
-            <button onClick={() => setConfirmDelete(false)} className="btn-ghost">Cancel</button>
-            <button onClick={async () => { await deleteVehicle(id); navigate('/garage') }} className="btn-danger flex-1 sm:flex-none">Delete</button>
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={async () => { await deleteVehicle(id); navigate('/garage') }} className="flex-1 sm:flex-none">Delete</Button>
           </>}
         >
-          <p className="text-sm text-secondary">
+          <p className="text-sm text-muted-foreground">
             This permanently deletes <strong>{vehicleTitle(vehicle)}</strong> and all its records. This can't be undone.
           </p>
         </Modal>
@@ -271,75 +296,74 @@ function EditVehicleModal({ vehicle, onClose, onSaved, onDelete }) {
   return (
     <Modal title="Edit vehicle" onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div className="grid grid-cols-3 gap-3">
-        <div><label className="label">Year</label><input value={f.year} onChange={set('year')} inputMode="numeric" className="input" /></div>
-        <div className="col-span-2"><label className="label">Make</label><input value={f.make} onChange={set('make')} className="input" /></div>
+        <div><Label className="mb-1.5">Year</Label><Input value={f.year} onChange={set('year')} inputMode="numeric" /></div>
+        <div className="col-span-2"><Label className="mb-1.5">Make</Label><Input value={f.make} onChange={set('make')} /></div>
       </div>
-      <div><label className="label">Model</label><input value={f.model} onChange={set('model')} className="input" /></div>
-      <div><label className="label">Nickname (optional)</label><input value={f.name} onChange={set('name')} className="input" /></div>
-      <div><label className="label">License plate (optional)</label><input value={f.license_plate} onChange={set('license_plate')} className="input" /></div>
+      <div><Label className="mb-1.5">Model</Label><Input value={f.model} onChange={set('model')} /></div>
+      <div><Label className="mb-1.5">Nickname (optional)</Label><Input value={f.name} onChange={set('name')} /></div>
+      <div><Label className="mb-1.5">License plate (optional)</Label><Input value={f.license_plate} onChange={set('license_plate')} /></div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Purchased on</label><input type="date" value={f.purchase_date} onChange={set('purchase_date')} className="input" /></div>
-        <div><label className="label">Purchase price</label><input value={f.purchase_price} onChange={set('purchase_price')} inputMode="decimal" className="input" /></div>
+        <div><Label className="mb-1.5">Purchased on</Label><Input type="date" value={f.purchase_date} onChange={set('purchase_date')} /></div>
+        <div><Label className="mb-1.5">Purchase price</Label><Input value={f.purchase_price} onChange={set('purchase_price')} inputMode="decimal" /></div>
       </div>
       <label className="flex items-center gap-2 text-sm py-1">
-        <input type="checkbox" checked={f.is_electric} onChange={(e) => setF((s) => ({ ...s, is_electric: e.target.checked }))} className="accent-accent w-4 h-4" />
+        <Checkbox checked={f.is_electric} onCheckedChange={(c) => setF((s) => ({ ...s, is_electric: c }))} />
         Electric vehicle
-        <span className="text-xs text-tertiary">— charges in kWh, efficiency in {units.distance}/kWh</span>
+        <span className="text-xs text-muted-foreground">— charges in kWh, efficiency in {units.distance}/kWh</span>
       </label>
       <div>
-        <label className="label">Notes</label>
-        <textarea value={f.notes} onChange={set('notes')} rows={3} className="input resize-y"
+        <Label className="mb-1.5">Notes</Label>
+        <Textarea value={f.notes} onChange={set('notes')} rows={3} className="resize-y"
           placeholder="Tire pressures, oil spec, wiper sizes…" />
       </div>
 
       {/* Ownership — selling and deleting live together, away from the everyday fields. */}
-      <div className="border-t border-hairline/50 pt-3 space-y-3">
+      <div className="border-t border-border/50 pt-3 space-y-3">
         {vehicle.is_archived ? (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="badge badge-due-soon">Sold{vehicle.sold_date ? ` ${fmtDate(vehicle.sold_date)}` : ''}</span>
-            <button type="button" onClick={() => patch({ is_archived: false, sold_date: null, sold_price: null })} className="btn-ghost text-xs">
+            <Badge variant="secondary" className="bg-warning/15 text-warning">Sold{vehicle.sold_date ? ` ${fmtDate(vehicle.sold_date)}` : ''}</Badge>
+            <Button type="button" variant="ghost" size="sm" onClick={() => patch({ is_archived: false, sold_date: null, sold_price: null })}>
               Mark as active
-            </button>
+            </Button>
             <div className="flex-1" />
-            <button type="button" onClick={onDelete} className="btn-ghost text-xs text-bad hover:text-bad">
-              <Trash2 size={13} /> Delete…
-            </button>
+            <Button type="button" variant="ghost" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
+              <Trash2 /> Delete…
+            </Button>
           </div>
         ) : selling ? (
           <div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Sold on</label>
-                <input type="date" value={soldDate} onChange={(e) => setSoldDate(e.target.value)} className="input" />
+                <Label className="mb-1.5">Sold on</Label>
+                <Input type="date" value={soldDate} onChange={(e) => setSoldDate(e.target.value)} />
               </div>
               <div>
-                <label className="label">Sale price (optional)</label>
-                <input value={soldPrice} onChange={(e) => setSoldPrice(e.target.value)} inputMode="decimal" className="input" />
+                <Label className="mb-1.5">Sale price (optional)</Label>
+                <Input value={soldPrice} onChange={(e) => setSoldPrice(e.target.value)} inputMode="decimal" />
               </div>
             </div>
             <div className="flex gap-2 mt-2">
-              <button type="button"
-                onClick={() => patch({ is_archived: true, sold_date: soldDate || null, sold_price: soldPrice ? parseFloat(soldPrice) : null })}
-                className="btn-primary">
+              <Button type="button" disabled={saving}
+                onClick={() => patch({ is_archived: true, sold_date: soldDate || null, sold_price: soldPrice ? parseFloat(soldPrice) : null })}>
                 Confirm sale
-              </button>
-              <button type="button" onClick={() => setSelling(false)} className="btn-ghost">Cancel</button>
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setSelling(false)}>Cancel</Button>
             </div>
-            <p className="text-xs text-tertiary mt-1">Sold vehicles move to their own section in the garage — all history stays.</p>
+            <p className="text-xs text-muted-foreground mt-1">Sold vehicles move to their own section in the garage — all history stays.</p>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setSelling(true)} className="btn-ghost text-xs text-warn hover:text-warn">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setSelling(true)} className="text-warning hover:text-warning">
               Mark as sold…
-            </button>
+            </Button>
             <div className="flex-1" />
-            <button type="button" onClick={onDelete} className="btn-ghost text-xs text-bad hover:text-bad">
-              <Trash2 size={13} /> Delete…
-            </button>
+            <Button type="button" variant="ghost" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
+              <Trash2 /> Delete…
+            </Button>
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -348,17 +372,21 @@ function EditVehicleModal({ vehicle, onClose, onSaved, onDelete }) {
 
 function Stat({ label, value, unit, sub, icon: Icon, tone }) {
   return (
-    <div className="stat flex flex-col">
-      <div className="stat-label flex items-center gap-1.5">
-        {Icon && <Icon size={13} className="text-tertiary flex-shrink-0" />}
-        {label}
-      </div>
-      <div className={`text-2xl font-semibold mt-1.5 num flex items-baseline gap-1 ${tone || 'text-primary'}`}>
-        <span className="truncate">{value}</span>
-        {unit && <span className="text-sm font-medium text-tertiary flex-shrink-0">{unit}</span>}
-      </div>
-      {sub && <div className="footnote mt-1 num">{sub}</div>}
-    </div>
+    <Card size="sm" className="gap-1.5">
+      <CardHeader>
+        <CardDescription className="flex items-center gap-1.5 font-medium">
+          {Icon && <Icon size={13} className="text-muted-foreground flex-shrink-0" />}
+          {label}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-semibold num flex items-baseline gap-1 ${tone || 'text-foreground'}`}>
+          <span className="truncate">{value}</span>
+          {unit && <span className="text-sm font-medium text-muted-foreground flex-shrink-0">{unit}</span>}
+        </div>
+        {sub && <div className="text-xs text-muted-foreground mt-1 num">{sub}</div>}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -366,8 +394,8 @@ function Stat({ label, value, unit, sub, icon: Icon, tone }) {
 
 const URGENCY_RANK = { overdue: 0, 'due-soon': 1, upcoming: 2, 'not-due': 3 }
 const URGENCY_BAR = {
-  overdue: 'bg-bad-fill', 'due-soon': 'bg-warn-fill',
-  upcoming: 'bg-info-fill', 'not-due': 'bg-ok-fill',
+  overdue: 'bg-destructive', 'due-soon': 'bg-warning',
+  upcoming: 'bg-info', 'not-due': 'bg-success',
 }
 
 function reminderProgress(r, currentOdo) {
@@ -399,34 +427,37 @@ function reminderStatus(r, currentOdo, u) {
 }
 
 function reminderStatusClass(r) {
-  if (!r.has_baseline) return 'text-warn'
-  if (r.urgency === 'overdue') return 'text-bad font-medium'
-  if (r.urgency === 'due-soon') return 'text-warn font-medium'
-  return 'text-secondary'
+  if (!r.has_baseline) return 'text-warning'
+  if (r.urgency === 'overdue') return 'text-destructive font-medium'
+  if (r.urgency === 'due-soon') return 'text-warning font-medium'
+  return 'text-muted-foreground'
 }
 
 function ReminderProgressBar({ r, progress }) {
   if (progress == null) return null
-  return <Bar value={progress} colorClass={URGENCY_BAR[r.urgency] || 'bg-tertiary'} className="mt-2" />
+  return <Bar value={progress} colorClass={URGENCY_BAR[r.urgency] || 'bg-muted-foreground'} className="mt-2" />
 }
 
 function ReminderRow({ r, currentOdo, onClick }) {
   const { units } = useSettings()
   const progress = r.has_baseline ? reminderProgress(r, currentOdo) : null
   return (
-    <button
-      onClick={onClick}
-      className="group w-full text-left px-4 sm:px-5 py-3 hover:bg-wash/[0.04] transition-colors"
+    <Item
+      size="sm"
+      role="listitem"
+      render={<button type="button" onClick={onClick} className="group cursor-pointer text-left hover:bg-muted" />}
     >
-      <div className="flex items-baseline gap-3">
-        <span className="text-sm font-medium truncate min-w-0 flex-1">{r.description}</span>
-        <span className={`text-xs flex-shrink-0 num ${reminderStatusClass(r)}`}>
-          {reminderStatus(r, currentOdo, units)}
-        </span>
-        <ChevronRight size={14} className="flex-shrink-0 text-tertiary transition-transform group-hover:translate-x-0.5" />
-      </div>
-      <ReminderProgressBar r={r} progress={progress} />
-    </button>
+      <ItemContent>
+        <div className="flex items-baseline gap-3">
+          <ItemTitle className="min-w-0 flex-1 truncate">{r.description}</ItemTitle>
+          <span className={`text-xs flex-shrink-0 num ${reminderStatusClass(r)}`}>
+            {reminderStatus(r, currentOdo, units)}
+          </span>
+          <ChevronRight size={14} className="flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        </div>
+        <ReminderProgressBar r={r} progress={progress} />
+      </ItemContent>
+    </Item>
   )
 }
 
@@ -454,10 +485,10 @@ const fmtChartX = (x) => {
 // Fixed color per metric (validated categorical palette, light + dark surfaces).
 // Literal class names — Tailwind's scanner must see them.
 const METRIC_COLORS = {
-  economy: { stroke: 'stroke-info-fill', fill: 'fill-info-fill', fillHover: 'fill-accent-hover', dot: 'bg-info-fill', text: 'text-info-fill' },
-  miles:   { stroke: 'stroke-ok-fill', fill: 'fill-ok-fill', fillHover: 'fill-ok', dot: 'bg-ok-fill', text: 'text-ok-fill' },
-  spend:   { stroke: 'stroke-warn-fill', fill: 'fill-warn-fill', fillHover: 'fill-warn', dot: 'bg-warn-fill', text: 'text-warn-fill' },
-  price:   { stroke: 'stroke-bad-fill', fill: 'fill-bad-fill', fillHover: 'fill-bad', dot: 'bg-bad-fill', text: 'text-bad-fill' },
+  economy: { var: 'var(--info)', stroke: 'stroke-info', fill: 'fill-info', fillHover: 'fill-info/80', dot: 'bg-info', text: 'text-info' },
+  miles:   { var: 'var(--success)', stroke: 'stroke-success', fill: 'fill-success', fillHover: 'fill-success/80', dot: 'bg-success', text: 'text-success' },
+  spend:   { var: 'var(--warning)', stroke: 'stroke-warning', fill: 'fill-warning', fillHover: 'fill-warning/80', dot: 'bg-warning', text: 'text-warning' },
+  price:   { var: 'var(--destructive)', stroke: 'stroke-destructive', fill: 'fill-destructive', fillHover: 'fill-destructive/80', dot: 'bg-destructive', text: 'text-destructive' },
 }
 
 function TrendCard({ fuel, odo, monthlySpend, money, units }) {
@@ -541,51 +572,65 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
     isEv && m.key === 'economy' ? 'Efficiency' : isEv && m.key === 'price' ? 'Energy price' : m.label
 
   return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <p className="caption">Trends</p>
-        <div className="flex-1" />
-        <div className="flex rounded-lg bg-inset/40 p-0.5">
-          {TREND_RANGES.map((r) => (
-            <button key={r.key} onClick={() => setRange(r.key)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
- range === r.key ? 'bg-surface text-accent shadow-sm' : 'text-secondary'
- }`}>
-              {r.label}
-            </button>
-          ))}
-        </div>
-        {/* Only meaningful with more than one metric on. */}
-        <button
-          onClick={() => setOverlay((o) => !o)}
-          disabled={selected.length < 2 || showTable}
-          aria-pressed={overlay}
-          className={`btn-ghost p-1.5 disabled:opacity-30 ${overlay && selected.length > 1 && !showTable ? 'text-accent hover:text-accent' : ''}`}
-          title={selected.length < 2
-            ? 'Pick a second metric to overlay'
-            : overlay ? 'Show as separate charts' : 'Overlay on one chart'}
-          aria-label={overlay ? 'Show as separate charts' : 'Overlay on one chart'}
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Trends</CardTitle>
+        <CardAction className="flex items-center gap-2">
+          <Tabs value={range} onValueChange={setRange}>
+            <TabsList>
+              {TREND_RANGES.map((r) => (
+                <TabsTrigger key={r.key} value={r.key} className="px-2.5 text-xs">{r.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          {/* Only meaningful with more than one metric on. */}
+          <Tooltip>
+            <TooltipTrigger render={
+              <Button
+                variant="ghost" size="icon-sm"
+                onClick={() => setOverlay((o) => !o)}
+                disabled={selected.length < 2 || showTable}
+                aria-pressed={overlay}
+                className={overlay && selected.length > 1 && !showTable ? 'text-primary hover:text-primary' : ''}
+                aria-label={overlay ? 'Show as separate charts' : 'Overlay on one chart'}
+              >
+                {overlay ? <Rows3 /> : <Layers />}
+              </Button>
+            } />
+            <TooltipContent>
+              {selected.length < 2
+                ? 'Pick a second metric to overlay'
+                : overlay ? 'Show as separate charts' : 'Overlay on one chart'}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger render={
+              <Button variant="ghost" size="icon-sm" onClick={() => setShowTable((s) => !s)}
+                aria-label={showTable ? 'Show chart' : 'Show table'}>
+                {showTable ? <LineChart /> : <Table2 />}
+              </Button>
+            } />
+            <TooltipContent>{showTable ? 'Show chart' : 'Show table'}</TooltipContent>
+          </Tooltip>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-3">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <ToggleGroup
+          multiple variant="outline" size="sm" spacing={2}
+          value={selected}
+          onValueChange={(vals) => { vals.forEach((k) => { if (!selected.includes(k)) toggleMetric(k) }); selected.forEach((k) => { if (!vals.includes(k)) toggleMetric(k) }) }}
         >
-          {overlay ? <Rows3 size={15} /> : <Layers size={15} />}
-        </button>
-        <button onClick={() => setShowTable((s) => !s)} className="btn-ghost p-1.5"
-          title={showTable ? 'Show chart' : 'Show table'} aria-label={showTable ? 'Show chart' : 'Show table'}>
-          {showTable ? <LineChart size={15} /> : <Table2 size={15} />}
-        </button>
-      </div>
-
-      <div className="flex gap-2 mb-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        {METRICS.map((m) => {
-          const on = selected.includes(m.key)
-          const label = labelFor(m)
-          return (
-            <button key={m.key} onClick={() => toggleMetric(m.key)} aria-pressed={on}
-              className={`chip gap-1.5 ${on ? 'chip-on' : 'chip-off'}`}>
-              <span className={`w-2 h-2 rounded-full ${METRIC_COLORS[m.key].dot} ${on ? '' : 'opacity-40'}`} />
-              {label}
-            </button>
-          )
-        })}
+          {METRICS.map((m) => {
+            const on = selected.includes(m.key)
+            return (
+              <ToggleGroupItem key={m.key} value={m.key} aria-label={labelFor(m)} className="gap-1.5 rounded-full">
+                <span className={`w-2 h-2 rounded-full ${METRIC_COLORS[m.key].dot} ${on ? '' : 'opacity-40'}`} />
+                {labelFor(m)}
+              </ToggleGroupItem>
+            )
+          })}
+        </ToggleGroup>
       </div>
 
       {isOverlaid ? (
@@ -600,20 +645,20 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
               {!single && (
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${METRIC_COLORS[m.key].dot}`} />
-                  <span className="text-xs font-medium text-secondary">{labelFor(m)}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{labelFor(m)}</span>
                   {s.length > 0 && (
-                    <span className="text-xs text-tertiary tabular-nums ml-auto">{fmt.value(s[s.length - 1].y)}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums ml-auto">{fmt.value(s[s.length - 1].y)}</span>
                   )}
                 </div>
               )}
               {s.length === 0 ? (
-                <p className={`text-sm text-tertiary text-center ${single ? 'py-10' : 'py-4'}`}>
+                <EmptyNote className={single ? 'py-10' : 'py-4'}>
                   {m.key === 'economy'
                     ? 'No economy data in this range yet — it needs consecutive fill-to-full records.'
                     : m.key === 'miles'
                       ? 'Distance is measured month over month — it needs odometer readings (from any record) in two different months.'
                       : 'No data in this range yet.'}
-                </p>
+                </EmptyNote>
               ) : showTable ? (
                 <ChartTable data={s} xHeader={s[0].x.length === 7 ? 'Month' : 'Date'} yHeader={fmt.header}
                   formatValue={fmt.value} formatX={fmtChartX} />
@@ -629,7 +674,8 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
         })}
       </div>
       )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -648,7 +694,7 @@ function OverlayView({ metrics, seriesFor, formats, labelFor }) {
     .filter((s) => s.points.length > 0)
 
   if (series.length === 0) {
-    return <p className="text-sm text-tertiary text-center py-10">No data in this range yet.</p>
+    return <EmptyNote className="py-10">No data in this range yet.</EmptyNote>
   }
 
   return (
@@ -663,9 +709,9 @@ function OverlayView({ metrics, seriesFor, formats, labelFor }) {
           return (
             <div key={s.key} className="flex items-baseline gap-2 text-xs min-w-0">
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.color.dot}`} />
-              <span className="font-medium text-secondary truncate">{s.label}</span>
+              <span className="font-medium text-muted-foreground truncate">{s.label}</span>
               <span className="flex-1" />
-              <span className="text-tertiary num truncate">
+              <span className="text-muted-foreground num truncate">
                 {lo === hi ? s.formatValue(lo) : `${s.formatValue(lo)} – ${s.formatValue(hi)}`}
               </span>
             </div>
@@ -673,7 +719,7 @@ function OverlayView({ metrics, seriesFor, formats, labelFor }) {
         })}
       </div>
 
-      <p className="footnote mt-2.5">
+      <p className="text-xs text-muted-foreground mt-2.5">
         Each line is scaled to its own range so they can be compared for shape, not size.
       </p>
     </div>
@@ -701,41 +747,46 @@ function NotesCard({ vehicle, onChanged }) {
 
   if (!editing && !vehicle.notes) {
     return (
-      <button onClick={start} className="btn-ghost text-xs -my-1">
-        <Plus size={13} /> Add notes
-      </button>
+      <Button variant="ghost" size="sm" onClick={start} className="-my-1">
+        <Plus /> Add notes
+      </Button>
     )
   }
 
   return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <p className="caption">Notes</p>
-        <div className="flex-1" />
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Notes</CardTitle>
         {!editing && (
-          <button onClick={start} className="btn-ghost p-1.5 -my-1" title="Edit notes" aria-label="Edit notes">
-            <Pencil size={13} />
-          </button>
+          <CardAction>
+            <IconTip label="Edit notes">
+              <Button variant="ghost" size="icon-sm" onClick={start} aria-label="Edit notes">
+                <Pencil />
+              </Button>
+            </IconTip>
+          </CardAction>
         )}
-      </div>
+      </CardHeader>
+      <CardContent>
       {editing ? (
         <div className="space-y-2">
-          <textarea
+          <Textarea
             ref={areaRef} value={draft} onChange={(e) => setDraft(e.target.value)} rows={4}
-            className="input resize-y" placeholder="Tire pressures, oil spec, wiper sizes…"
+            className="resize-y" placeholder="Tire pressures, oil spec, wiper sizes…"
           />
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="btn-primary text-xs disabled:opacity-50">
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button onClick={() => setEditing(false)} className="btn-ghost text-xs">Cancel</button>
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? <><Spinner /> Saving…</> : 'Save'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
           </div>
-          {error && <p className="text-xs text-bad">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
       ) : (
-        <p className="text-sm text-secondary whitespace-pre-wrap">{vehicle.notes}</p>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{vehicle.notes}</p>
       )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -805,72 +856,89 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
       </div>
 
       {/* Up next — every job reads the same way, ordered by urgency. */}
-      <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 px-4 sm:px-5 pt-4 pb-3">
-          <Bell size={15} className="text-tertiary" />
-          <p className="caption">Up next</p>
-          <div className="flex-1" />
-          <button onClick={onAddReminder} className="btn-ghost -my-1 px-2" title="Add reminder" aria-label="Add reminder">
-            <Plus size={15} />
-          </button>
-        </div>
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell size={15} className="text-muted-foreground" />
+            Up next
+          </CardTitle>
+          <CardAction>
+            <IconTip label="Add reminder">
+              <Button variant="ghost" size="icon-sm" onClick={onAddReminder} aria-label="Add reminder">
+                <Plus />
+              </Button>
+            </IconTip>
+          </CardAction>
+        </CardHeader>
 
         {reminders.length === 0 ? (
-          <p className="px-4 sm:px-5 pb-5 text-sm text-tertiary">
-            Nothing scheduled —{' '}
-            <button onClick={onAddReminder} className="text-accent hover:underline">add a reminder</button>.
-          </p>
+          <CardContent>
+            <EmptyNote>
+              Nothing scheduled —{' '}
+              <Button variant="link" onClick={onAddReminder} className="h-auto p-0">add a reminder</Button>.
+            </EmptyNote>
+          </CardContent>
         ) : (
           <>
-            <div className="list-group border-t border-hairline/40">
-              {top.map((r) => (
-                <ReminderRow key={r.id} r={r} currentOdo={data.odometer} onClick={onOpenReminders} />
-              ))}
-            </div>
+            <CardContent className="px-2">
+              <ItemGroup className="gap-0">
+                {top.map((r) => (
+                  <ReminderRow key={r.id} r={r} currentOdo={data.odometer} onClick={onOpenReminders} />
+                ))}
+              </ItemGroup>
+            </CardContent>
             {reminders.length > top.length && (
-              <button onClick={onOpenReminders}
-                className="w-full text-left px-4 sm:px-5 py-3 text-xs font-medium text-accent hover:bg-wash/[0.04] border-t border-hairline/40 transition-colors">
-                View all {reminders.length} reminders
-              </button>
+              <CardFooter className="-mt-2">
+                <Button variant="link" size="sm" onClick={onOpenReminders}>
+                  View all {reminders.length} reminders
+                </Button>
+              </CardFooter>
             )}
           </>
         )}
-      </div>
+      </Card>
 
       {/* Tires — only once there's a set to talk about. */}
       {tires && tires.sets.length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="flex items-center gap-2 px-4 sm:px-5 pt-4 pb-3">
-            <Disc3 size={15} className="text-tertiary" />
-            <p className="caption">Tires</p>
-            <div className="flex-1" />
-            <button onClick={onOpenTires} className="text-xs font-medium text-accent hover:underline">Manage</button>
-          </div>
-          <div className="list-group border-t border-hairline/40">
-            {[...tires.sets].sort((a, b) => (b.is_mounted ? 1 : 0) - (a.is_mounted ? 1 : 0)).map((s) => {
-              const rot = rotationStatus(s, units)
-              return (
-                <button key={s.id} onClick={onOpenTires}
-                  className="group w-full text-left px-4 sm:px-5 py-3 hover:bg-wash/[0.04] transition-colors">
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-sm font-medium truncate min-w-0 flex-1">
-                      {s.name}
-                      {s.is_mounted && <span className="badge badge-service ml-2 font-normal">on the car</span>}
-                    </span>
-                    <span className="text-xs flex-shrink-0 num text-secondary">
-                      {s.miles.toLocaleString()} {units.distance}
-                    </span>
-                    <ChevronRight size={14} className="flex-shrink-0 text-tertiary transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                  <WearBar pct={s.wear_pct} />
-                  {rot && rot.pct != null && rot.pct >= 0.85 && (
-                    <p className={`text-xs mt-1.5 num ${rot.cls}`}>{rot.text}</p>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Disc3 size={15} className="text-muted-foreground" />
+              Tires
+            </CardTitle>
+            <CardAction>
+              <Button variant="link" size="sm" onClick={onOpenTires}>Manage</Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="px-2">
+            <ItemGroup className="gap-0">
+              {[...tires.sets].sort((a, b) => (b.is_mounted ? 1 : 0) - (a.is_mounted ? 1 : 0)).map((s) => {
+                const rot = rotationStatus(s, units)
+                return (
+                  <Item key={s.id} size="sm" role="listitem"
+                    render={<button type="button" onClick={onOpenTires} className="group cursor-pointer text-left hover:bg-muted" />}>
+                    <ItemContent>
+                      <div className="flex items-baseline gap-3">
+                        <ItemTitle className="min-w-0 flex-1 truncate">
+                          {s.name}
+                          {s.is_mounted && <Badge variant="secondary" className="font-normal bg-success/15 text-success">on the car</Badge>}
+                        </ItemTitle>
+                        <span className="text-xs flex-shrink-0 num text-muted-foreground">
+                          {s.miles.toLocaleString()} {units.distance}
+                        </span>
+                        <ChevronRight size={14} className="flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                      <WearBar pct={s.wear_pct} />
+                      {rot && rot.pct != null && rot.pct >= 0.85 && (
+                        <p className={`text-xs mt-1.5 num ${rot.cls}`}>{rot.text}</p>
+                      )}
+                    </ItemContent>
+                  </Item>
+                )
+              })}
+            </ItemGroup>
+          </CardContent>
+        </Card>
       )}
 
       <TrendCard fuel={fuel} odo={odo} monthlySpend={data.monthly_spend} money={money} units={units} />
@@ -878,28 +946,31 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
       <div className="grid lg:grid-cols-2 gap-3">
         <CostBreakdown breakdown={b} total={data.total_cost} money={money} />
 
-        <div className="card-pad">
-          <p className="caption mb-3">{isEv ? 'Charging' : 'Fuel'} stats</p>
+        <Card size="sm">
+          <CardHeader><CardTitle>{isEv ? 'Charging' : 'Fuel'} stats</CardTitle></CardHeader>
+          <CardContent>
           {!fuelStats ? (
-            <p className="text-sm text-tertiary">{isEv ? 'No charges logged yet.' : 'No fill-ups logged yet.'}</p>
+            <EmptyNote>{isEv ? 'No charges logged yet.' : 'No fill-ups logged yet.'}</EmptyNote>
           ) : (
-            <div className="list-group">
+            <div className="divide-y divide-border/40">
               <DataRow label={isEv ? 'Charges logged' : 'Fill-ups logged'} value={fuelStats.count} />
               <DataRow label={`Avg ${isEv ? 'energy' : 'fuel'} price`}
                 value={fuelStats.avgPrice != null ? `${money(fuelStats.avgPrice)}/${units.volume}` : '—'} />
               <DataRow label="Best economy"
-                value={fuelStats.best != null ? `${fuelStats.best.toFixed(1)} ${units.economy}` : '—'} tone="text-ok" />
+                value={fuelStats.best != null ? `${fuelStats.best.toFixed(1)} ${units.economy}` : '—'} tone="text-success" />
               <DataRow label="Worst economy"
                 value={fuelStats.worst != null ? `${fuelStats.worst.toFixed(1)} ${units.economy}` : '—'} />
             </div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {!!(vehicle?.purchase_price != null || vehicle?.purchase_date || vehicle?.is_archived) && (
-        <div className="card-pad">
-          <p className="caption mb-3">Ownership</p>
-          <div className="list-group">
+        <Card size="sm">
+          <CardHeader><CardTitle>Ownership</CardTitle></CardHeader>
+          <CardContent>
+          <div className="divide-y divide-border/40">
             <DataRow
               label="Purchased"
               value={`${vehicle.purchase_date ? fmtDate(vehicle.purchase_date) : '—'}${
@@ -920,7 +991,8 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
               />
             )}
           </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <NotesCard vehicle={vehicle} onChanged={onVehicleChange} />
@@ -931,24 +1003,24 @@ function Overview({ vehicleId, vehicle, money, distance, units, onOpenReminders,
 /* Where the money went, as one proportional bar rather than four lonely
    numbers — the split is the interesting part, and a bar shows it instantly. */
 const COST_PARTS = [
-  { key: 'fuel', label: 'Fuel', bar: 'bg-info-fill', dot: 'bg-info-fill' },
-  { key: 'service', label: 'Service', bar: 'bg-ok-fill', dot: 'bg-ok-fill' },
-  { key: 'repair', label: 'Repair', bar: 'bg-bad-fill', dot: 'bg-bad-fill' },
-  { key: 'upgrade', label: 'Upgrade', bar: 'bg-violet-fill', dot: 'bg-violet-fill' },
+  { key: 'fuel', label: 'Fuel', bar: 'bg-info', dot: 'bg-info' },
+  { key: 'service', label: 'Service', bar: 'bg-success', dot: 'bg-success' },
+  { key: 'repair', label: 'Repair', bar: 'bg-destructive', dot: 'bg-destructive' },
+  { key: 'upgrade', label: 'Upgrade', bar: 'bg-chart-4', dot: 'bg-chart-4' },
 ]
 
 function CostBreakdown({ breakdown, total, money }) {
   const sum = COST_PARTS.reduce((n, p) => n + (breakdown[p.key] || 0), 0)
   return (
-    <div className="card-pad">
-      <div className="flex items-baseline gap-3 mb-3">
-        <p className="caption">Where the money went</p>
-        <div className="flex-1" />
-        <p className="text-sm font-semibold num">{money(total)}</p>
-      </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Where the money went</CardTitle>
+        <CardAction><p className="text-sm font-semibold num">{money(total)}</p></CardAction>
+      </CardHeader>
+      <CardContent>
 
       {sum > 0 ? (
-        <div className="flex h-2.5 rounded-full overflow-hidden bg-inset gap-0.5">
+        <div className="flex h-2.5 rounded-full overflow-hidden bg-muted gap-0.5">
           {COST_PARTS.map((p) => {
             const v = breakdown[p.key] || 0
             if (v <= 0) return null
@@ -956,10 +1028,10 @@ function CostBreakdown({ breakdown, total, money }) {
           })}
         </div>
       ) : (
-        <div className="h-2.5 rounded-full bg-inset" />
+        <div className="h-2.5 rounded-full bg-muted" />
       )}
 
-      <div className="mt-3 list-group">
+      <div className="mt-3 divide-y divide-border/40">
         {COST_PARTS.map((p) => (
           <DataRow
             key={p.key}
@@ -971,7 +1043,8 @@ function CostBreakdown({ breakdown, total, money }) {
           />
         ))}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -979,10 +1052,10 @@ function CostBreakdown({ breakdown, total, money }) {
 function DataRow({ label, value, sub, tone, strong }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2 text-sm">
-      <span className={`min-w-0 truncate ${strong ? 'font-medium text-primary' : 'text-secondary'}`}>{label}</span>
+      <span className={`min-w-0 truncate ${strong ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{label}</span>
       <span className="flex items-baseline gap-2 flex-shrink-0">
-        {sub && <span className="footnote num">{sub}</span>}
-        <span className={`num ${strong ? 'font-semibold' : ''} ${tone || 'text-primary'}`}>{value}</span>
+        {sub && <span className="text-xs text-muted-foreground num">{sub}</span>}
+        <span className={`num ${strong ? 'font-semibold' : ''} ${tone || 'text-foreground'}`}>{value}</span>
       </span>
     </div>
   )
@@ -990,12 +1063,12 @@ function DataRow({ label, value, sub, tone, strong }) {
 
 function OverviewSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
+    <div className="space-y-4" role="status" aria-label="Loading">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-24" />)}
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
       </div>
-      <div className="card h-56" />
-      <div className="card h-72" />
+      <Skeleton className="h-56" />
+      <Skeleton className="h-72" />
     </div>
   )
 }
@@ -1006,37 +1079,68 @@ function TabShell({ title, addLabel = 'Add', onAdd, children }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h2 className="title-sm">{title}</h2>
+        <h2 className="font-heading text-base font-semibold">{title}</h2>
         {/* The mobile FAB covers this action on small screens. */}
-        <button onClick={onAdd} className="btn-primary hidden sm:inline-flex"><Plus size={15} /> {addLabel}</button>
+        <Button variant="default" onClick={onAdd} className="hidden sm:inline-flex"><Plus size={15} /> {addLabel}</Button>
       </div>
       {children}
     </div>
   )
 }
 
+// Icon button with a tooltip carrying its label.
+function IconTip({ label, children }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={children} />
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+// Inline "nothing here" message.
+function EmptyNote({ children, className }) {
+  return (
+    <Empty className={cn('p-6', className)}>
+      <EmptyHeader>
+        <EmptyDescription>{children}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  )
+}
+
 function RowActions({ onEdit, onDelete, attachCount, onAttach, compact = false }) {
-  const pad = compact ? 'p-1.5' : 'p-2'
-  const iconSize = compact ? 14 : 16
-  const base = `rounded-md transition-colors hover:bg-wash/[0.07] ${pad}`
+  const size = compact ? 'icon-xs' : 'icon-sm'
   return (
     <div className="flex items-center justify-end gap-0.5">
       {onAttach && (
-        <button onClick={onAttach} className={`relative text-tertiary hover:text-accent ${base}`} title="Receipts & documents" aria-label="Receipts & documents">
-          <Paperclip size={iconSize - 1} className={attachCount > 0 ? 'text-accent' : ''} />
-          {attachCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 bg-accent text-white text-[9px] leading-none rounded-full min-w-[13px] h-[13px] flex items-center justify-center px-0.5">{attachCount}</span>
-          )}
-        </button>
+        <IconTip label="Receipts & documents">
+          <Button variant="ghost" size={size} onClick={onAttach} className="relative text-muted-foreground hover:text-primary" aria-label="Receipts & documents">
+            <Paperclip className={attachCount > 0 ? 'text-primary' : ''} />
+            {attachCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[9px] leading-none rounded-full min-w-[13px] h-[13px] flex items-center justify-center px-0.5">{attachCount}</span>
+            )}
+          </Button>
+        </IconTip>
       )}
-      <button onClick={onEdit} className={`text-tertiary hover:text-accent ${base}`} title="Edit" aria-label="Edit"><Pencil size={iconSize - 1} /></button>
-      <button onClick={onDelete} className={`text-tertiary hover:text-bad ${base}`} title="Delete" aria-label="Delete"><Trash2 size={iconSize} /></button>
+      <IconTip label="Edit">
+        <Button variant="ghost" size={size} onClick={onEdit} className="text-muted-foreground hover:text-primary" aria-label="Edit"><Pencil /></Button>
+      </IconTip>
+      <IconTip label="Delete">
+        <Button variant="ghost" size={size} onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 /></Button>
+      </IconTip>
     </div>
   )
 }
 
 function EmptyRow({ colSpan, label }) {
-  return <tr><td colSpan={colSpan} className="py-14 text-center text-sm text-secondary">{label}</td></tr>
+  return (
+    <TableRow className="hover:bg-transparent">
+      <TableCell colSpan={colSpan} className="p-0 whitespace-normal">
+        <EmptyNote className="py-10">{label}</EmptyNote>
+      </TableCell>
+    </TableRow>
+  )
 }
 
 /* Column sorting — local per tab, so every page opens on date, newest first. */
@@ -1065,50 +1169,57 @@ function Th({ label, k, sort, onSort }) {
   const active = sort.key === k
   const Icon = active ? (sort.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
   return (
-    <th aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined} className="px-4 py-0 font-normal">
-      <button
+    <TableHead aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined} className="px-2">
+      <Button
+        variant="ghost" size="xs"
         onClick={() => onSort(k)}
-        className={`group flex items-center gap-1 py-2.5 text-xs font-medium transition-colors ${
-          active ? 'text-accent' : 'text-secondary hover:text-primary'
+        className={`group text-xs font-medium ${
+          active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
         }`}
       >
-        {label} <Icon size={11} className={active ? '' : 'opacity-0 group-hover:opacity-60 transition-opacity'} />
-      </button>
-    </th>
+        {label} <Icon className={active ? '' : 'opacity-0 group-hover:opacity-60 transition-opacity'} />
+      </Button>
+    </TableHead>
   )
 }
 
 // Mobile counterpart of the sortable headers, shown above the card lists.
 function MobileSortBar({ columns, sort, setSort }) {
   return (
-    <div className="sm:hidden flex items-center justify-end gap-0.5 mb-2 text-xs text-secondary">
-      <label htmlFor="mobile-sort" className="text-xs text-tertiary">Sort</label>
-      <select
-        id="mobile-sort"
+    <div className="sm:hidden flex items-center justify-end gap-0.5 mb-2 text-xs text-muted-foreground">
+      <label htmlFor="mobile-sort" className="text-xs text-muted-foreground">Sort</label>
+      <NativeSelect
+        id="mobile-sort" size="sm"
         value={sort.key}
         onChange={(e) => setSort((s) => ({ ...s, key: e.target.value }))}
-        className="bg-transparent text-xs font-medium focus:outline-none py-1.5"
       >
         {columns.map((c) => <option key={c.k} value={c.k}>{c.label}</option>)}
-      </select>
-      <button
-        onClick={() => setSort((s) => ({ ...s, dir: s.dir === 'desc' ? 'asc' : 'desc' }))}
-        className="p-1.5"
-        title={sort.dir === 'desc' ? 'Descending — tap for ascending' : 'Ascending — tap for descending'}
-        aria-label={sort.dir === 'desc' ? 'Sorted descending, switch to ascending' : 'Sorted ascending, switch to descending'}
-      >
-        {sort.dir === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
-      </button>
+      </NativeSelect>
+      <IconTip label={sort.dir === 'desc' ? 'Descending — tap for ascending' : 'Ascending — tap for descending'}>
+        <Button
+          variant="ghost" size="icon-sm"
+          onClick={() => setSort((s) => ({ ...s, dir: s.dir === 'desc' ? 'asc' : 'desc' }))}
+          aria-label={sort.dir === 'desc' ? 'Sorted descending, switch to ascending' : 'Sorted ascending, switch to descending'}
+        >
+          {sort.dir === 'desc' ? <ArrowDown /> : <ArrowUp />}
+        </Button>
+      </IconTip>
     </div>
   )
 }
 
 function EmptyCard({ label, actionLabel, onAction }) {
   return (
-    <div className="card px-6 py-12 flex flex-col items-center text-center">
-      <p className="text-sm text-secondary">{label}</p>
-      {onAction && <button onClick={onAction} className="btn-tinted mt-4"><Plus size={15} /> {actionLabel}</button>}
-    </div>
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyDescription>{label}</EmptyDescription>
+      </EmptyHeader>
+      {onAction && (
+        <EmptyContent>
+          <Button variant="secondary" onClick={onAction}><Plus /> {actionLabel}</Button>
+        </EmptyContent>
+      )}
+    </Empty>
   )
 }
 
@@ -1128,8 +1239,8 @@ function usePendingAdd(pendingAdd, onAddConsumed, open) {
 
 function FormFooter({ onClose, onSave, saving }) {
   return <>
-    <button onClick={onClose} className="btn-ghost">Cancel</button>
-    <button onClick={onSave} disabled={saving} className="btn-primary flex-1 sm:flex-none disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+    <Button variant="default" onClick={onSave} disabled={saving} className="flex-1 sm:flex-none">{saving ? <><Spinner /> Saving…</> : 'Save'}</Button>
   </>
 }
 
@@ -1168,55 +1279,57 @@ function FuelTab({ vehicleId, money, units, onChange, pendingAdd, onAddConsumed 
     <TabShell title={isEv ? 'Charging' : 'Fuel'} addLabel={isEv ? 'Add charge' : 'Add fuel'} onAdd={() => setForm({})}>
       {rows.length > 0 && <MobileSortBar columns={fuelColumns} sort={sort} setSort={setSort} />}
       {/* Mobile: card list with touch-sized actions */}
-      <div className="sm:hidden space-y-2">
+      <ItemGroup className="gap-2 sm:hidden">
         {sorted.length === 0 ? (
           <EmptyCard label={isEv ? 'No charges yet.' : 'No fill-ups yet.'} actionLabel={isEv ? 'Add your first charge' : 'Add your first fill-up'} onAction={() => setForm({})} />
         ) : sorted.map((r) => (
-          <div key={r.id} className="card p-3">
+          <Item key={r.id} variant="outline" size="sm" role="listitem">
+            <ItemContent className="gap-0">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-medium">{fmtDate(r.date)}</span>
+              <ItemTitle>{fmtDate(r.date)}</ItemTitle>
               <div className="text-right">
                 <div className="text-sm font-semibold tabular-nums">{money(r.cost)}</div>
-                {r.price != null && <div className="text-xs text-secondary tabular-nums">{money(r.price)}/{units.volume}</div>}
+                {r.price != null && <div className="text-xs text-muted-foreground tabular-nums">{money(r.price)}/{units.volume}</div>}
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 mt-0.5">
-              <p className="text-xs text-secondary tabular-nums min-w-0 truncate">
+              <p className="text-xs text-muted-foreground tabular-nums min-w-0 truncate">
                 {distance(r.odometer)} · {r.quantity} {units.volume}{!r.is_fill_to_full && ' (partial)'}
                 {r.economy ? ` · ${r.economy} ${units.economy}` : ''}
               </p>
               <RowActions attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
             </div>
-          </div>
+            </ItemContent>
+          </Item>
         ))}
-      </div>
+      </ItemGroup>
 
       {/* Desktop: full table */}
-      <div className="card overflow-hidden hidden sm:block">
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left bg-inset/60">
+      <Card className="hidden gap-0 py-0 sm:flex">
+        <CardContent className="px-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted hover:bg-muted">
               {fuelColumns.map((c) => <Th key={c.k} label={c.label} k={c.k} sort={sort} onSort={sortBy} />)}
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead className="px-4 py-3"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {sorted.length === 0 ? <EmptyRow colSpan={7} label="No fuel records yet." /> : sorted.map((r) => (
-              <tr key={r.id} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
-                <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-4 py-3 tabular-nums">{r.odometer.toLocaleString()}</td>
-                <td className="px-4 py-3 tabular-nums">{r.quantity}{!r.is_fill_to_full && <span className="text-tertiary"> (partial)</span>}</td>
-                <td className="px-4 py-3 tabular-nums">{money(r.cost)}</td>
-                <td className="px-4 py-3 tabular-nums text-secondary">{r.price != null ? money(r.price) : '—'}</td>
-                <td className="px-4 py-3 tabular-nums text-secondary">{r.economy ? `${r.economy} ${units.economy}` : '—'}</td>
-                <td className="px-4 py-3"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
-              </tr>
+              <TableRow key={r.id}>
+                <TableCell className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</TableCell>
+                <TableCell className="px-4 py-3 tabular-nums">{r.odometer.toLocaleString()}</TableCell>
+                <TableCell className="px-4 py-3 tabular-nums">{r.quantity}{!r.is_fill_to_full && <span className="text-muted-foreground"> (partial)</span>}</TableCell>
+                <TableCell className="px-4 py-3 tabular-nums">{money(r.cost)}</TableCell>
+                <TableCell className="px-4 py-3 tabular-nums text-muted-foreground">{r.price != null ? money(r.price) : '—'}</TableCell>
+                <TableCell className="px-4 py-3 tabular-nums text-muted-foreground">{r.economy ? `${r.economy} ${units.economy}` : '—'}</TableCell>
+                <TableCell className="px-4 py-3"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
+          </TableBody>
+        </Table>
+        </CardContent>
+      </Card>
       {form && (
         <FuelForm vehicleId={vehicleId} record={form.id ? form : null} lastFillup={lastFillup} units={units}
           onClose={() => setForm(null)} onSaved={() => { setForm(null); reload(); onChange?.() }} />
@@ -1274,31 +1387,31 @@ function FuelForm({ vehicleId, record, lastFillup, units, onClose, onSaved }) {
     <Modal title={record ? (isEv ? 'Edit charge' : 'Edit fuel') : (isEv ? 'Add charge' : 'Add fuel')} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Odometer</label>
-          <input ref={odoRef} value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input"
+          <Label className="mb-1.5">Odometer</Label>
+          <Input ref={odoRef} value={f.odometer} onChange={set('odometer')} inputMode="numeric"
             placeholder={lastFillup ? String(lastFillup.odometer) : ''} />
           {!record && lastFillup && (
-            <p className="text-xs text-tertiary mt-1">Last: {lastFillup.odometer.toLocaleString()} on {fmtDate(lastFillup.date)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Last: {lastFillup.odometer.toLocaleString()} on {fmtDate(lastFillup.date)}</p>
           )}
         </div>
         <div>
-          <label className="label">Quantity</label>
-          <input value={f.quantity} onChange={set('quantity')} inputMode="decimal" className="input" placeholder={units.volume} />
+          <Label className="mb-1.5">Quantity</Label>
+          <Input value={f.quantity} onChange={set('quantity')} inputMode="decimal"  placeholder={units.volume} />
         </div>
       </div>
       <div>
-        <label className="label">Total cost</label>
-        <input value={f.cost} onChange={set('cost')} inputMode="decimal" className="input" />
+        <Label className="mb-1.5">Total cost</Label>
+        <Input value={f.cost} onChange={set('cost')} inputMode="decimal" />
         {qty > 0 && cost > 0 && (
-          <p className="text-xs text-tertiary mt-1 tabular-nums">≈ {money(cost / qty)} / {units.volume}</p>
+          <p className="text-xs text-muted-foreground mt-1 tabular-nums">≈ {money(cost / qty)} / {units.volume}</p>
         )}
       </div>
-      <label className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={f.is_fill_to_full} onChange={toggle('is_fill_to_full')} className="accent-accent w-4 h-4" /> {isEv ? 'Charged to 100%' : 'Filled to full'}</label>
-      <label className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={f.missed_fuelup} onChange={toggle('missed_fuelup')} className="accent-accent w-4 h-4" /> {isEv ? 'Missed a previous charge' : 'Missed a previous fill-up'}</label>
-      <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
-      <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
+      <label className="flex items-center gap-2 text-sm py-1"><Checkbox checked={f.is_fill_to_full} onCheckedChange={(c) => toggle('is_fill_to_full')({ target: { checked: c } })} /> {isEv ? 'Charged to 100%' : 'Filled to full'}</label>
+      <label className="flex items-center gap-2 text-sm py-1"><Checkbox checked={f.missed_fuelup} onCheckedChange={(c) => toggle('missed_fuelup')({ target: { checked: c } })} /> {isEv ? 'Missed a previous charge' : 'Missed a previous fill-up'}</label>
+      <div><Label className="mb-1.5">Date</Label><Input type="date" value={f.date} onChange={set('date')} /></div>
+      <div><Label className="mb-1.5">Notes</Label><Input value={f.notes} onChange={set('notes')} /></div>
       <RecordAttachments vehicleId={vehicleId} recordType="fuel" recordId={record?.id} pending={pending} setPending={setPending} />
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -1345,67 +1458,71 @@ function RecordsTab({ vehicleId, money, onChange, initialFilter = 'all', pending
 
   return (
     <TabShell title="Service, repairs & upgrades" addLabel="Add record" onAdd={() => setForm({ type: defaultType })}>
-      <div className="flex gap-2 mb-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        {['all', ...RECORD_TYPES].map((t) => (
-          <button key={t} onClick={() => setFilter(t)} className={`chip ${filter === t ? 'chip-on' : 'chip-off'}`}>
-            {t === 'all' ? 'All' : `${TYPE_LABEL[t]}s`}
-          </button>
-        ))}
+      <div className="mb-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <ToggleGroup variant="outline" size="sm" value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0])}>
+          {['all', ...RECORD_TYPES].map((t) => (
+            <ToggleGroupItem key={t} value={t} className="rounded-full">
+              {t === 'all' ? 'All' : `${TYPE_LABEL[t]}s`}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
 
       {rows.length > 0 && <MobileSortBar columns={RECORD_COLUMNS} sort={sort} setSort={setSort} />}
       {/* Mobile: card list */}
-      <div className="sm:hidden space-y-2">
+      <ItemGroup className="gap-2 sm:hidden">
         {shown.length === 0 ? (
           <EmptyCard label="Nothing logged here yet." actionLabel="Add a record" onAction={() => setForm({ type: defaultType })} />
         ) : shown.map((r) => (
-          <div key={`${r.type}-${r.id}`} className="card p-3">
+          <Item key={`${r.type}-${r.id}`} variant="outline" size="sm" role="listitem">
+            <ItemContent className="gap-0">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium min-w-0 truncate">
+              <ItemTitle className="min-w-0 truncate">
                 {r.description}
-                {tireNames[r.tire_set_id] && <span className="badge badge-not-due ml-1.5 font-normal">{tireNames[r.tire_set_id]}</span>}
-              </p>
+                {tireNames[r.tire_set_id] && <Badge variant="secondary" className="font-normal">{tireNames[r.tire_set_id]}</Badge>}
+              </ItemTitle>
               <span className="text-sm font-semibold tabular-nums flex-shrink-0">{money(r.cost)}</span>
             </div>
             <div className="flex items-center justify-between gap-2 mt-1">
-              <p className="text-xs text-secondary tabular-nums min-w-0 truncate flex items-center gap-1.5">
-                <span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span>
+              <p className="text-xs text-muted-foreground tabular-nums min-w-0 truncate flex items-center gap-1.5">
+                <Badge variant={TYPE_BADGE[r.type].variant} className={TYPE_BADGE[r.type].className}>{TYPE_LABEL[r.type]}</Badge>
                 {fmtDate(r.date)}{r.odometer != null && ` · ${r.odometer.toLocaleString()}`}
               </p>
               <RowActions attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
             </div>
-          </div>
+            </ItemContent>
+          </Item>
         ))}
-      </div>
+      </ItemGroup>
 
       {/* Desktop: full table */}
-      <div className="card overflow-hidden hidden sm:block">
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left bg-inset/60">
+      <Card className="hidden gap-0 py-0 sm:flex">
+        <CardContent className="px-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted hover:bg-muted">
               {RECORD_COLUMNS.map((c) => <Th key={c.k} label={c.label} k={c.k} sort={sort} onSort={sortBy} />)}
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead className="px-4 py-3"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {shown.length === 0 ? <EmptyRow colSpan={6} label="Nothing logged here yet." /> : shown.map((r) => (
-              <tr key={`${r.type}-${r.id}`} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
-                <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-4 py-3"><span className={`badge badge-${r.type}`}>{TYPE_LABEL[r.type]}</span></td>
-                <td className="px-4 py-3 tabular-nums">{r.odometer != null ? r.odometer.toLocaleString() : '—'}</td>
-                <td className="px-4 py-3">
+              <TableRow key={`${r.type}-${r.id}`}>
+                <TableCell className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</TableCell>
+                <TableCell className="px-4 py-3"><Badge variant={TYPE_BADGE[r.type].variant} className={TYPE_BADGE[r.type].className}>{TYPE_LABEL[r.type]}</Badge></TableCell>
+                <TableCell className="px-4 py-3 tabular-nums">{r.odometer != null ? r.odometer.toLocaleString() : '—'}</TableCell>
+                <TableCell className="px-4 py-3">
                   {r.description}
-                  {tireNames[r.tire_set_id] && <span className="badge badge-not-due ml-1.5 font-normal">{tireNames[r.tire_set_id]}</span>}
-                </td>
-                <td className="px-4 py-3 tabular-nums">{money(r.cost)}</td>
-                <td className="px-4 py-3"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
-              </tr>
+                  {tireNames[r.tire_set_id] && <Badge variant="secondary" className="ml-1.5 font-normal">{tireNames[r.tire_set_id]}</Badge>}
+                </TableCell>
+                <TableCell className="px-4 py-3 tabular-nums">{money(r.cost)}</TableCell>
+                <TableCell className="px-4 py-3"><RowActions compact attachCount={r.attachment_count} onAttach={() => setAttach(r)} onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
+          </TableBody>
+        </Table>
+        </CardContent>
+      </Card>
       {form && (
         <CostRecordForm vehicleId={vehicleId} record={form.id ? form : null} initialType={form.type}
           onClose={() => setForm(null)} onSaved={() => { setForm(null); reload(); loadTires(); onChange?.() }} />
@@ -1520,36 +1637,33 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
   return (
     <Modal title={record ? `Edit ${TYPE_LABEL[type].toLowerCase()}` : 'Add record'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div>
-        <label className="label">Type</label>
-        <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-inset/40">
-          {RECORD_TYPES.map((t) => (
-            <button key={t} type="button" onClick={() => setType(t)}
-              className={`h-9 rounded-md text-sm font-medium transition-colors ${
- type === t ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'
- }`}>
-              {TYPE_LABEL[t]}
-            </button>
-          ))}
-        </div>
+        <Label className="mb-1.5">Type</Label>
+        <Tabs value={type} onValueChange={setType}>
+          <TabsList className="grid h-9 w-full grid-cols-3">
+            {RECORD_TYPES.map((t) => (
+              <TabsTrigger key={t} value={t}>{TYPE_LABEL[t]}</TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         {record && type !== record.type && (
-          <p className="text-xs text-tertiary mt-1">Saving moves this record to {TYPE_LABEL[type].toLowerCase()}s — attachments come along.</p>
+          <p className="text-xs text-muted-foreground mt-1">Saving moves this record to {TYPE_LABEL[type].toLowerCase()}s — attachments come along.</p>
         )}
       </div>
-      <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
+      <div><Label className="mb-1.5">Date</Label><Input type="date" value={f.date} onChange={set('date')} /></div>
       <div>
-        <label className="label">Items</label>
+        <Label className="mb-1.5">Items</Label>
         <ItemsInput value={f.items} onChange={(items) => setF((s) => ({ ...s, items }))} options={type === 'service' ? serviceOptions : PRESETS[type]} placeholder="e.g. Oil change" />
-        <p className="text-xs text-tertiary mt-1">Add multiple if you did several things in one visit.</p>
+        <p className="text-xs text-muted-foreground mt-1">Add multiple if you did several things in one visit.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Odometer</label><input value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
-        <div><label className="label">Cost</label><input value={f.cost} onChange={set('cost')} inputMode="decimal" className="input" /></div>
+        <div><Label className="mb-1.5">Odometer</Label><Input value={f.odometer} onChange={set('odometer')} inputMode="numeric" /></div>
+        <div><Label className="mb-1.5">Cost</Label><Input value={f.cost} onChange={set('cost')} inputMode="decimal" /></div>
       </div>
 
       {showTires && (
-        <div className="border-t border-hairline/50 pt-3">
-          <label className="label">Which tires?</label>
-          <select value={tireSet} onChange={(e) => pickSet(e.target.value)} className="input">
+        <div className="border-t border-border/50 pt-3">
+          <Label className="mb-1.5">Which tires?</Label>
+          <NativeSelect className="w-full" value={tireSet} onChange={(e) => pickSet(e.target.value)}>
             <option value="">Not tied to a set</option>
             {tires.sets.map((s) => (
               <option key={s.id} value={s.id}>
@@ -1557,32 +1671,32 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
               </option>
             ))}
             <option value="new">+ New set of tires…</option>
-          </select>
+          </NativeSelect>
 
           {tireSet === 'new' && (
             <div className="grid grid-cols-2 gap-3 mt-2">
               <div>
-                <label className="label">Name</label>
-                <input value={newSet.name} onChange={(e) => setNewSet((s) => ({ ...s, name: e.target.value }))}
-                  className="input" placeholder="Summer — PS4S" />
+                <Label className="mb-1.5">Name</Label>
+                <Input value={newSet.name} onChange={(e) => setNewSet((s) => ({ ...s, name: e.target.value }))}
+                   placeholder="Summer — PS4S" />
               </div>
               <div>
-                <label className="label">Rated for</label>
-                <input value={newSet.expected_miles} onChange={(e) => setNewSet((s) => ({ ...s, expected_miles: e.target.value }))}
-                  inputMode="numeric" className="input" placeholder="40000" />
+                <Label className="mb-1.5">Rated for</Label>
+                <Input value={newSet.expected_miles} onChange={(e) => setNewSet((s) => ({ ...s, expected_miles: e.target.value }))}
+                  inputMode="numeric"  placeholder="40000" />
               </div>
             </div>
           )}
 
           {tireSet !== '' && (
             <label className="flex items-center gap-2 text-sm mt-2">
-              <input type="checkbox" checked={changeover} onChange={(e) => setChangeover(e.target.checked)} className="accent-accent w-4 h-4" />
+              <Checkbox checked={changeover} onCheckedChange={(c) => setChangeover(c)} />
               Changeover — this set goes on the car
             </label>
           )}
           {/* Spelling out the set names beats describing the mechanism: the
               sentence says exactly what saving will do. */}
-          <p className="text-xs text-tertiary mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {tireSet === ''
               ? 'Pick a set so a rotation or repair records which tires it was.'
               : changeover
@@ -1595,9 +1709,9 @@ function CostRecordForm({ vehicleId, record, initialType, onClose, onSaved }) {
         </div>
       )}
 
-      <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
+      <div><Label className="mb-1.5">Notes</Label><Input value={f.notes} onChange={set('notes')} /></div>
       <RecordAttachments vehicleId={vehicleId} recordType={record?.type || type} recordId={record?.id} pending={pending} setPending={setPending} />
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -1615,17 +1729,17 @@ const TREAD_CORNERS = [
 
 // Worn-in colour ramp, matching the reminder bars: fine → getting on → replace.
 const wearClass = (pct) =>
-  pct == null ? 'bg-tertiary' : pct >= 0.9 ? 'bg-bad-fill' : pct >= 0.75 ? 'bg-warn-fill' : 'bg-ok-fill'
+  pct == null ? 'bg-muted-foreground' : pct >= 0.9 ? 'bg-destructive' : pct >= 0.75 ? 'bg-warning' : 'bg-success'
 
 // Rotations turn amber and red later than tread wear does — being due is a
 // nudge, not a problem, so the thresholds line up with the status wording.
 const rotationBarClass = (pct) =>
-  pct == null ? 'bg-tertiary' : pct >= 1 ? 'bg-bad-fill' : pct >= 0.85 ? 'bg-warn-fill' : 'bg-ok-fill'
+  pct == null ? 'bg-muted-foreground' : pct >= 1 ? 'bg-destructive' : pct >= 0.85 ? 'bg-warning' : 'bg-success'
 
 function WearBar({ pct, barClass }) {
   if (pct == null) return null
   return (
-    <div className="mt-1.5 h-1.5 rounded-full bg-inset dark:bg-white/[0.06] overflow-hidden">
+    <div className="mt-1.5 h-1.5 rounded-full bg-muted dark:bg-white/[0.06] overflow-hidden">
       <div className={`h-full rounded-full ${barClass || wearClass(pct)}`} style={{ width: `${Math.max(2, Math.round(pct * 100))}%` }} />
     </div>
   )
@@ -1635,7 +1749,7 @@ function WearBar({ pct, barClass }) {
 function rotationStatus(s, u) {
   if (!s.rotate_miles) return null
   if (s.miles_since_rotation == null) {
-    return { text: 'no rotation logged', cls: 'text-warn', pct: null }
+    return { text: 'no rotation logged', cls: 'text-warning', pct: null }
   }
   const pct = s.miles_since_rotation / s.rotate_miles
   const left = s.rotate_miles - s.miles_since_rotation
@@ -1643,7 +1757,7 @@ function rotationStatus(s, u) {
     text: left < 0
       ? `rotation ${Math.abs(left).toLocaleString()} ${u.distance} overdue`
       : `${left.toLocaleString()} ${u.distance} to rotation`,
-    cls: pct >= 1 ? 'text-bad font-medium' : pct >= 0.85 ? 'text-warn font-medium' : 'text-secondary',
+    cls: pct >= 1 ? 'text-destructive font-medium' : pct >= 0.85 ? 'text-warning font-medium' : 'text-muted-foreground',
     pct: Math.min(1, pct),
   }
 }
@@ -1661,7 +1775,13 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
   // Every tire write returns the whole recomputed picture, so saving is one round trip.
   const applied = (fresh) => { setData(fresh); onChange?.() }
 
-  if (!data) return <div className="text-tertiary text-sm">Loading…</div>
+  if (!data) return (
+    <div className="space-y-3" role="status" aria-label="Loading">
+      <Skeleton className="h-6 w-40" />
+      <Skeleton className="h-20 w-full" />
+      <Skeleton className="h-20 w-full" />
+    </div>
+  )
 
   const open = data.sets.find((s) => s.id === openSetId)
   if (open) {
@@ -1691,76 +1811,90 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
         <div className="space-y-5">
           <section>
             <div className="flex items-center gap-2 mb-2">
-              <p className="caption">On the car</p>
+              <p className="text-sm font-medium text-muted-foreground">On the car</p>
               <div className="flex-1" />
-              <button onClick={() => setChangeForm(true)} className="btn-ghost text-xs">
-                <Repeat size={13} /> Log changeover
-              </button>
+              <Button variant="ghost" size="sm" onClick={() => setChangeForm(true)}>
+                <Repeat /> Log changeover
+              </Button>
             </div>
             {mounted ? (
-              <TireSetCard s={mounted} money={money} units={units} onOpen={() => setOpenSetId(mounted.id)} />
+              <ItemGroup>
+                <TireSetCard s={mounted} money={money} units={units} onOpen={() => setOpenSetId(mounted.id)} />
+              </ItemGroup>
             ) : (
-              <div className="card p-4 text-sm text-tertiary">
-                No set is marked as mounted.{' '}
-                <button onClick={() => setChangeForm(true)} className="text-accent hover:underline">Log a changeover</button>{' '}
-                to start counting miles.
-              </div>
+              <Empty className="border p-4">
+                <EmptyHeader>
+                  <EmptyDescription>
+                    No set is marked as mounted.{' '}
+                    <Button variant="link" onClick={() => setChangeForm(true)} className="h-auto p-0">Log a changeover</Button>{' '}
+                    to start counting miles.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
           </section>
 
           {garage.length > 0 && (
             <section>
-              <p className="caption mb-2">In the garage</p>
-              <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground mb-2">In the garage</p>
+              <ItemGroup className="gap-2">
                 {garage.map((s) => <TireSetCard key={s.id} s={s} money={money} units={units} onOpen={() => setOpenSetId(s.id)} />)}
-              </div>
+              </ItemGroup>
             </section>
           )}
 
           {retired.length > 0 && (
             <section>
-              <p className="caption mb-2">Retired</p>
-              <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground mb-2">Retired</p>
+              <ItemGroup className="gap-2">
                 {retired.map((s) => <TireSetCard key={s.id} s={s} money={money} units={units} onOpen={() => setOpenSetId(s.id)} />)}
-              </div>
+              </ItemGroup>
             </section>
           )}
 
           {data.changes.length > 0 && (
             <section>
-              <p className="caption mb-2">Changeover history</p>
-              <div className="card divide-y divide-hairline/40">
-                {data.changes.map((c) => (
-                  <div key={c.id} className="flex items-center gap-1 pr-2">
-                    <button
-                      onClick={() => setChangeForm(c)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm flex-1 min-w-0 text-left rounded-lg hover:bg-wash/[0.05] transition-colors"
-                    >
-                      <span className="tabular-nums text-secondary w-24 flex-shrink-0">{fmtDate(c.date)}</span>
-                      <span className="min-w-0 truncate flex-1">
-                        {c.set_name || <span className="text-tertiary italic">nothing mounted</span>}
-                        {c.is_redundant && (
-                          <span className="badge badge-due-soon ml-1.5 font-normal" title="This set was already on the car — this row only splits one stint in two">
-                            already on
+              <p className="text-sm font-medium text-muted-foreground mb-2">Changeover history</p>
+              <Card size="sm" className="py-1">
+                <CardContent className="px-1">
+                  <ItemGroup className="gap-0 divide-y">
+                    {data.changes.map((c) => (
+                      <Item key={c.id} size="xs" role="listitem" className="flex-nowrap gap-1 border-transparent py-0 pr-1">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setChangeForm(c)}
+                          className="h-auto min-w-0 flex-1 justify-start gap-3 px-2 py-2 text-sm font-normal"
+                        >
+                          <span className="tabular-nums text-muted-foreground w-24 flex-shrink-0 text-left">{fmtDate(c.date)}</span>
+                          <span className="min-w-0 truncate flex-1 text-left">
+                            {c.set_name || <span className="text-muted-foreground italic">nothing mounted</span>}
+                            {c.is_redundant && (
+                              <Badge variant="secondary" className="ml-1.5 font-normal bg-warning/15 text-warning" title="This set was already on the car — this row only splits one stint in two">
+                                already on
+                              </Badge>
+                            )}
                           </span>
-                        )}
-                      </span>
-                      <span className="tabular-nums text-xs text-secondary flex-shrink-0">
-                        at {c.odometer.toLocaleString()}
-                        {c.miles != null && ` · ran ${c.miles.toLocaleString()} ${units.distance}${c.is_current ? ' so far' : ''}`}
-                      </span>
-                    </button>
-                    <button
-                      onClick={async () => applied(await deleteTireChange(vehicleId, c.id))}
-                      className="text-tertiary hover:text-bad p-1 flex-shrink-0"
-                      title="Delete changeover" aria-label="Delete changeover"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-tertiary mt-1.5">
+                          <span className="tabular-nums text-xs text-muted-foreground flex-shrink-0">
+                            at {c.odometer.toLocaleString()}
+                            {c.miles != null && ` · ran ${c.miles.toLocaleString()} ${units.distance}${c.is_current ? ' so far' : ''}`}
+                          </span>
+                        </Button>
+                        <IconTip label="Delete changeover">
+                          <Button
+                            variant="ghost" size="icon-xs"
+                            onClick={async () => applied(await deleteTireChange(vehicleId, c.id))}
+                            className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                            aria-label="Delete changeover"
+                          >
+                            <Trash2 />
+                          </Button>
+                        </IconTip>
+                      </Item>
+                    ))}
+                  </ItemGroup>
+                </CardContent>
+              </Card>
+              <p className="text-xs text-muted-foreground mt-1.5">
                 Each changeover runs until the next one — the newest counts up to your current odometer.
                 Tap one to correct its date or odometer.
               </p>
@@ -1789,15 +1923,17 @@ function TiresTab({ vehicleId, money, distance, units, onChange, pendingAdd, onA
 function TireSetCard({ s, money, units, onOpen }) {
   const rot = rotationStatus(s, units)
   return (
-    <button onClick={onOpen} className="card p-3 w-full text-left hover:border-accent/40 transition-colors">
+    <Item variant="outline" size="sm" role="listitem"
+      render={<button type="button" onClick={onOpen} className="cursor-pointer text-left hover:bg-muted" />}>
+      <ItemContent className="gap-0">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-medium truncate min-w-0">{s.name}</span>
+        <ItemTitle className="min-w-0 truncate">{s.name}</ItemTitle>
         <span className="text-sm font-semibold tabular-nums flex-shrink-0">
           {s.miles.toLocaleString()} {units.distance}
         </span>
       </div>
       <div className="flex items-center justify-between gap-3 mt-0.5">
-        <span className="text-xs text-secondary truncate min-w-0">
+        <span className="text-xs text-muted-foreground truncate min-w-0">
           {s.size && `${s.size} · `}
           {s.is_mounted && s.mounted_since
             ? `on since ${fmtDate(s.mounted_since.date)} at ${s.mounted_since.odometer.toLocaleString()}`
@@ -1810,7 +1946,7 @@ function TireSetCard({ s, money, units, onOpen }) {
       {(s.expected_miles > 0 || s.baseline_miles > 0) && (
         <>
           {s.expected_miles > 0 && <WearBar pct={s.wear_pct} />}
-          <p className="text-xs text-tertiary mt-1 tabular-nums">
+          <p className="text-xs text-muted-foreground mt-1 tabular-nums">
             {[
               s.expected_miles > 0 && `${Math.round((s.wear_pct ?? 0) * 100)}% of ${s.expected_miles.toLocaleString()} ${units.distance}`,
               s.baseline_miles > 0 && `incl. ${s.baseline_miles.toLocaleString()} before tracking`,
@@ -1819,7 +1955,8 @@ function TireSetCard({ s, money, units, onOpen }) {
           </p>
         </>
       )}
-    </button>
+      </ItemContent>
+    </Item>
   )
 }
 
@@ -1832,13 +1969,13 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <button onClick={onBack} className="btn-ghost text-xs"><ArrowLeft size={14} /> Tire sets</button>
+        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft size={14} /> Tire sets</Button>
         <div className="flex-1" />
-        <button onClick={() => setEditing(true)} className="btn-ghost text-xs"><Pencil size={13} /> Edit</button>
+        <Button variant="ghost" size="sm" onClick={() => setEditing(true)}><Pencil size={13} /> Edit</Button>
       </div>
 
       <h2 className="text-base font-semibold mb-0.5">{s.name}</h2>
-      <p className="text-xs text-tertiary mb-4">
+      <p className="text-xs text-muted-foreground mb-4">
         {[s.size, s.purchase_date && `bought ${fmtDate(s.purchase_date)}`, s.cost != null && money(s.cost)].filter(Boolean).join(' · ') || 'No purchase details'}
       </p>
 
@@ -1850,132 +1987,149 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
       </div>
 
       {s.expected_miles > 0 && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="caption">Tread life</p>
-            <p className="text-xs tabular-nums text-secondary">
+        <Card size="sm" className="mb-5">
+          <CardHeader>
+            <CardTitle>Tread life</CardTitle>
+            <CardAction className="text-xs tabular-nums text-muted-foreground">
               {s.miles.toLocaleString()} of {s.expected_miles.toLocaleString()} {units.distance}
               {s.miles < s.expected_miles && ` · ${(s.expected_miles - s.miles).toLocaleString()} left`}
-            </p>
-          </div>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
           <WearBar pct={s.wear_pct} />
           {s.baseline_miles > 0 && (
-            <p className="text-xs text-tertiary mt-1.5 tabular-nums">
+            <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
               {s.baseline_miles.toLocaleString()} estimated before tracking + {s.tracked_miles.toLocaleString()} logged since.
             </p>
           )}
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {rot && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="caption">Rotation</p>
-            <p className={`text-xs tabular-nums ${rot.cls}`}>{rot.text}</p>
-          </div>
+        <Card size="sm" className="mb-5">
+          <CardHeader>
+            <CardTitle>Rotation</CardTitle>
+            <CardAction className={`text-xs tabular-nums ${rot.cls}`}>{rot.text}</CardAction>
+          </CardHeader>
+          <CardContent>
           <WearBar pct={rot.pct} barClass={rotationBarClass(rot.pct)} />
-          <p className="text-xs text-secondary mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             {s.last_rotation
               ? `Last rotated ${fmtDate(s.last_rotation.date)}${s.last_rotation.odometer != null ? ` at ${s.last_rotation.odometer.toLocaleString()}` : ''} — ${s.miles_since_rotation.toLocaleString()} ${units.distance} on this set since.`
               : `No rotation recorded on this set yet. Log a service with a “rotation” item and tag it to this set.`}
           </p>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="mb-5">
-        <p className="caption mb-2">Time on the car</p>
+        <p className="text-sm font-medium text-muted-foreground mb-2">Time on the car</p>
         {s.records.length === 0 && !s.last_change ? (
-          <div className="card p-4 text-sm text-tertiary">Never mounted — log a changeover to start counting.</div>
+          <EmptyNote className="border p-4">Never mounted — log a changeover to start counting.</EmptyNote>
         ) : (
-          <div className="card p-4 text-sm text-secondary">
+          <Card size="sm">
+            <CardContent className="text-sm text-muted-foreground">
             {s.is_mounted && s.mounted_since
               ? <>On the car since {fmtDate(s.mounted_since.date)} at {s.mounted_since.odometer.toLocaleString()} — {(odometer - s.mounted_since.odometer).toLocaleString()} {units.distance} this stint.</>
               : s.last_change
                 ? <>Last came off after {fmtDate(s.last_change.date)}, mounted at {s.last_change.odometer.toLocaleString()}.</>
                 : 'Never mounted.'}
-          </div>
+            </CardContent>
+          </Card>
         )}
       </div>
 
       <div className="mb-5">
-        <p className="caption mb-2">Services on this set</p>
+        <p className="text-sm font-medium text-muted-foreground mb-2">Services on this set</p>
         {s.records.length === 0 ? (
-          <div className="card p-4 text-sm text-tertiary">
+          <EmptyNote className="border p-4">
             Nothing tagged to this set yet — tag a rotation, balance or repair to it from the Service tab.
-          </div>
+          </EmptyNote>
         ) : (
-          <div className="card divide-y divide-hairline/40">
+          <Card size="sm" className="py-1">
+            <CardContent className="px-1">
+            <ItemGroup className="gap-0 divide-y">
             {s.records.map((r) => (
-              <div key={`${r.type}-${r.id}`} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span className="tabular-nums text-secondary w-24 flex-shrink-0">{fmtDate(r.date)}</span>
+              <Item key={`${r.type}-${r.id}`} size="xs" role="listitem" className="flex-nowrap gap-3 border-transparent px-2 py-2 text-sm">
+                <span className="tabular-nums text-muted-foreground w-24 flex-shrink-0">{fmtDate(r.date)}</span>
                 <span className="min-w-0 truncate flex-1">
                   {r.description}
-                  {r.is_rotation && <span className="badge badge-not-due ml-1.5">rotation</span>}
+                  {r.is_rotation && <Badge variant="secondary" className="ml-1.5">rotation</Badge>}
                 </span>
-                <span className="tabular-nums text-xs text-secondary flex-shrink-0">
+                <span className="tabular-nums text-xs text-muted-foreground flex-shrink-0">
                   {r.odometer != null && `${r.odometer.toLocaleString()} · `}{money(r.cost)}
                 </span>
-              </div>
+              </Item>
             ))}
-          </div>
+            </ItemGroup>
+            </CardContent>
+          </Card>
         )}
       </div>
 
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-2">
-          <p className="caption">Tread depth</p>
+          <p className="text-sm font-medium text-muted-foreground">Tread depth</p>
           <div className="flex-1" />
-          <button onClick={() => setTreadForm(true)} className="btn-ghost text-xs"><Plus size={13} /> Add reading</button>
+          <Button variant="ghost" size="sm" onClick={() => setTreadForm(true)}><Plus size={13} /> Add reading</Button>
         </div>
         {s.treads.length === 0 ? (
-          <div className="card p-4 text-sm text-tertiary">No measurements yet.</div>
+          <EmptyNote className="border p-4">No measurements yet.</EmptyNote>
         ) : (
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-hairline/50 text-xs font-medium text-secondary">
-                  <th className="px-4 py-3 font-medium">Date</th>
-                  <th className="px-4 py-3 font-medium">Odometer</th>
-                  {TREAD_CORNERS.map((c) => <th key={c.k} className="px-4 py-3 font-medium">{c.label}</th>)}
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
+          <Card className="gap-0 py-0">
+            <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted text-xs text-muted-foreground hover:bg-muted">
+                  <TableHead className="px-4 py-3 font-medium">Date</TableHead>
+                  <TableHead className="px-4 py-3 font-medium">Odometer</TableHead>
+                  {TREAD_CORNERS.map((c) => <TableHead key={c.k} className="px-4 py-3 font-medium">{c.label}</TableHead>)}
+                  <TableHead className="px-4 py-3"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {s.treads.map((t) => (
-                  <tr key={t.id} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap">{fmtDate(t.date)}</td>
-                    <td className="px-4 py-3 tabular-nums">{t.odometer != null ? t.odometer.toLocaleString() : '—'}</td>
+                  <TableRow key={t.id}>
+                    <TableCell className="px-4 py-3 whitespace-nowrap">{fmtDate(t.date)}</TableCell>
+                    <TableCell className="px-4 py-3 tabular-nums">{t.odometer != null ? t.odometer.toLocaleString() : '—'}</TableCell>
                     {TREAD_CORNERS.map((c) => (
-                      <td key={c.k} className="px-4 py-3 tabular-nums">{t[c.k] != null ? t[c.k] : '—'}</td>
+                      <TableCell key={c.k} className="px-4 py-3 tabular-nums">{t[c.k] != null ? t[c.k] : '—'}</TableCell>
                     ))}
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={async () => onChanged(await deleteTread(vehicleId, t.id))}
-                        className="text-tertiary hover:text-bad p-1" title="Delete reading" aria-label="Delete reading"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
+                    <TableCell className="px-4 py-3 text-right">
+                      <IconTip label="Delete reading">
+                        <Button
+                          variant="ghost" size="icon-xs"
+                          onClick={async () => onChanged(await deleteTread(vehicleId, t.id))}
+                          className="text-muted-foreground hover:text-destructive" aria-label="Delete reading"
+                        >
+                          <Trash2 />
+                        </Button>
+                      </IconTip>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+            </CardContent>
+          </Card>
         )}
-        <p className="text-xs text-tertiary mt-1.5">Depths in 32nds of an inch (or mm — whatever you measure in). New tires are around 10–11/32".</p>
+        <p className="text-xs text-muted-foreground mt-1.5">Depths in 32nds of an inch (or mm — whatever you measure in). New tires are around 10–11/32".</p>
       </div>
 
       {s.notes && (
-        <div className="card p-4 mb-5">
-          <p className="caption mb-1">Notes</p>
-          <p className="text-sm text-secondary whitespace-pre-wrap">{s.notes}</p>
-        </div>
+        <Card size="sm" className="mb-5">
+          <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{s.notes}</p>
+          </CardContent>
+        </Card>
       )}
 
       <div className="flex justify-end">
-        <button onClick={() => setConfirmDelete(true)} className="btn-ghost text-xs text-bad hover:text-bad">
-          <Trash2 size={13} /> Delete this set…
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} className="text-destructive hover:text-destructive">
+          <Trash2 /> Delete this set…
+        </Button>
       </div>
 
       {editing && (
@@ -2045,77 +2199,76 @@ function TireSetForm({ vehicleId, set, odometer, units, onClose, onSaved }) {
   return (
     <Modal title={set ? 'Edit tire set' : 'Add tire set'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div>
-        <label className="label">Name</label>
-        <input value={f.name} onChange={setV('name')} className="input" placeholder="e.g. Winter — Blizzak WS90" autoFocus={!set} />
+        <Label className="mb-1.5">Name</Label>
+        <Input value={f.name} onChange={setV('name')}  placeholder="e.g. Winter — Blizzak WS90" autoFocus={!set} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Size (optional)</label><input value={f.size} onChange={setV('size')} className="input" placeholder="225/60R18" /></div>
-        <div><label className="label">Bought on</label><input type="date" value={f.purchase_date} onChange={setV('purchase_date')} className="input" /></div>
+        <div><Label className="mb-1.5">Size (optional)</Label><Input value={f.size} onChange={setV('size')}  placeholder="225/60R18" /></div>
+        <div><Label className="mb-1.5">Bought on</Label><Input type="date" value={f.purchase_date} onChange={setV('purchase_date')} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Cost</label>
-          <input value={f.cost} onChange={setV('cost')} inputMode="decimal" className="input" />
+          <Label className="mb-1.5">Cost</Label>
+          <Input value={f.cost} onChange={setV('cost')} inputMode="decimal" />
         </div>
         <div>
-          <label className="label">Rated for ({units.distance})</label>
-          <input value={f.expected_miles} onChange={setV('expected_miles')} inputMode="numeric" className="input" placeholder="40000" />
+          <Label className="mb-1.5">Rated for ({units.distance})</Label>
+          <Input value={f.expected_miles} onChange={setV('expected_miles')} inputMode="numeric"  placeholder="40000" />
         </div>
       </div>
       <div>
-        <label className="label">Rotate every ({units.distance}, optional)</label>
-        <input value={f.rotate_miles} onChange={setV('rotate_miles')} inputMode="numeric" className="input" placeholder="6000" />
-        <p className="text-xs text-tertiary mt-1">
+        <Label className="mb-1.5">Rotate every ({units.distance}, optional)</Label>
+        <Input value={f.rotate_miles} onChange={setV('rotate_miles')} inputMode="numeric"  placeholder="6000" />
+        <p className="text-xs text-muted-foreground mt-1">
           Counts only while this set is on the car, from the last service tagged to it with a “rotation” item.
         </p>
       </div>
       <div>
-        <label className="label">Already on them ({units.distance}, optional)</label>
-        <input value={f.baseline_miles} onChange={setV('baseline_miles')} inputMode="numeric" className="input" placeholder="0" />
+        <Label className="mb-1.5">Already on them ({units.distance}, optional)</Label>
+        <Input value={f.baseline_miles} onChange={setV('baseline_miles')} inputMode="numeric"  placeholder="0" />
         {/* Starting to track a half-worn set is the normal case, not the
             exception — so make the estimate a two-tap job. */}
         {expected > 0 && (
           <div className="flex gap-1.5 mt-1.5">
             {[[0.25, '¼ used'], [0.5, 'half used'], [0.75, '¾ used']].map(([frac, label]) => (
-              <button key={frac} type="button"
-                onClick={() => setF((s) => ({ ...s, baseline_miles: String(Math.round(expected * frac)) }))}
-                className="chip chip-off text-xs">
+              <Button key={frac} type="button" size="sm" variant="outline" className="rounded-full"
+                onClick={() => setF((s) => ({ ...s, baseline_miles: String(Math.round(expected * frac)) }))}>
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
-        <p className="text-xs text-tertiary mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           For tires you were already running before you started tracking. A rough guess is fine — everything from
           here on gets added to it.
         </p>
       </div>
-      <div><label className="label">Notes</label><input value={f.notes} onChange={setV('notes')} className="input" placeholder="Stored in the garage, DOT 2419…" /></div>
+      <div><Label className="mb-1.5">Notes</Label><Input value={f.notes} onChange={setV('notes')}  placeholder="Stored in the garage, DOT 2419…" /></div>
 
       {set ? (
         <label className="flex items-center gap-2 text-sm py-1">
-          <input type="checkbox" checked={f.is_retired} onChange={(e) => setF((s) => ({ ...s, is_retired: e.target.checked }))} className="accent-accent w-4 h-4" />
+          <Checkbox checked={f.is_retired} onCheckedChange={(c) => setF((s) => ({ ...s, is_retired: c }))} />
           Retired
-          <span className="text-xs text-tertiary">— worn out or sold; keeps its history</span>
+          <span className="text-xs text-muted-foreground">— worn out or sold; keeps its history</span>
         </label>
       ) : (
-        <div className="border-t border-hairline/50 pt-3">
+        <div className="border-t border-border/50 pt-3">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={mount} onChange={(e) => setMount(e.target.checked)} className="accent-accent w-4 h-4" />
+            <Checkbox checked={mount} onCheckedChange={(c) => setMount(c)} />
             Put this set on the car now
           </label>
           {mount && (
             <div className="grid grid-cols-2 gap-3 mt-2">
-              <div><label className="label">Fitted on</label><input type="date" value={mountDate} onChange={(e) => setMountDate(e.target.value)} className="input" /></div>
-              <div><label className="label">At odometer</label><input value={mountOdo} onChange={(e) => setMountOdo(e.target.value)} inputMode="numeric" className="input" /></div>
+              <div><Label className="mb-1.5">Fitted on</Label><Input type="date" value={mountDate} onChange={(e) => setMountDate(e.target.value)} /></div>
+              <div><Label className="mb-1.5">At odometer</Label><Input value={mountOdo} onChange={(e) => setMountOdo(e.target.value)} inputMode="numeric" /></div>
             </div>
           )}
-          <p className="text-xs text-tertiary mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {mount ? 'Miles start counting from this reading.' : 'Leave off for a set you already own but that is not on the car — log a changeover when it goes on.'}
           </p>
         </div>
       )}
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -2149,25 +2302,25 @@ function ChangeoverForm({ vehicleId, sets, mountedId, odometer, change, onClose,
   return (
     <Modal title={change ? 'Edit changeover' : 'Log a changeover'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div>
-        <label className="label">Which set went on?</label>
-        <select value={setId} onChange={(e) => setSetId(e.target.value)} className="input">
+        <Label className="mb-1.5">Which set went on?</Label>
+        <NativeSelect className="w-full" value={setId} onChange={(e) => setSetId(e.target.value)}>
           {sets.map((s) => (
             <option key={s.id} value={s.id}>{s.name}{s.id === mountedId ? ' (on now)' : ''}</option>
           ))}
           <option value="">Nothing / untracked tires</option>
-        </select>
+        </NativeSelect>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input" /></div>
-        <div><label className="label">Odometer</label><input value={odo} onChange={(e) => setOdo(e.target.value)} inputMode="numeric" className="input" /></div>
+        <div><Label className="mb-1.5">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div><Label className="mb-1.5">Odometer</Label><Input value={odo} onChange={(e) => setOdo(e.target.value)} inputMode="numeric" /></div>
       </div>
-      <div><label className="label">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" /></div>
-      <p className="text-xs text-tertiary">
+      <div><Label className="mb-1.5">Notes</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+      <p className="text-xs text-muted-foreground">
         {change
           ? 'Moving the date or odometer re-splits the miles between this set and whatever was on either side of it.'
           : 'The set that was on until now stops counting here, and this one starts. Logging an old swap you forgot works the same way — the totals re-sort themselves.'}
       </p>
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -2192,20 +2345,20 @@ function TreadForm({ vehicleId, setId, odometer, onClose, onSaved }) {
   return (
     <Modal title="Add tread reading" onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
-        <div><label className="label">Odometer</label><input value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
+        <div><Label className="mb-1.5">Date</Label><Input type="date" value={f.date} onChange={set('date')} /></div>
+        <div><Label className="mb-1.5">Odometer</Label><Input value={f.odometer} onChange={set('odometer')} inputMode="numeric" /></div>
       </div>
       <div className="grid grid-cols-4 gap-2">
         {TREAD_CORNERS.map((c) => (
           <div key={c.k}>
-            <label className="label">{c.label}</label>
-            <input value={f[c.k]} onChange={set(c.k)} inputMode="decimal" className="input" placeholder="—" />
+            <Label className="mb-1.5">{c.label}</Label>
+            <Input value={f[c.k]} onChange={set(c.k)} inputMode="decimal"  placeholder="—" />
           </div>
         ))}
       </div>
-      <p className="text-xs text-tertiary">Left/right front and rear. Fill in as many as you measured.</p>
-      <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
-      {error && <p className="text-xs text-bad">{error}</p>}
+      <p className="text-xs text-muted-foreground">Left/right front and rear. Fill in as many as you measured.</p>
+      <div><Label className="mb-1.5">Notes</Label><Input value={f.notes} onChange={set('notes')} /></div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -2231,43 +2384,45 @@ function OdometerTab({ vehicleId, distance, onChange, pendingAdd, onAddConsumed 
     <TabShell title="Odometer" addLabel="Add reading" onAdd={() => setForm({})}>
       {rows.length > 0 && <MobileSortBar columns={ODO_COLUMNS} sort={sort} setSort={setSort} />}
       {/* Mobile: card list */}
-      <div className="sm:hidden space-y-2">
+      <ItemGroup className="gap-2 sm:hidden">
         {sorted.length === 0 ? (
           <EmptyCard label="No odometer readings yet." actionLabel="Add a reading" onAction={() => setForm({})} />
         ) : sorted.map((r) => (
-          <div key={r.id} className="card p-3 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-medium tabular-nums">{distance(r.odometer)}</p>
-              <p className="text-xs text-secondary truncate">{fmtDate(r.date)}{r.notes ? ` · ${r.notes}` : ''}</p>
-            </div>
-            <RowActions onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
-          </div>
+          <Item key={r.id} variant="outline" size="sm" role="listitem" className="flex-nowrap justify-between gap-2">
+            <ItemContent className="min-w-0 gap-0">
+              <ItemTitle className="tabular-nums">{distance(r.odometer)}</ItemTitle>
+              <ItemDescription className="truncate text-xs">{fmtDate(r.date)}{r.notes ? ` · ${r.notes}` : ''}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <RowActions onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
+            </ItemActions>
+          </Item>
         ))}
-      </div>
+      </ItemGroup>
 
       {/* Desktop: full table */}
-      <div className="card overflow-hidden hidden sm:block">
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left bg-inset/60">
+      <Card className="hidden gap-0 py-0 sm:flex">
+        <CardContent className="px-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted hover:bg-muted">
               {ODO_COLUMNS.map((c) => <Th key={c.k} label={c.label} k={c.k} sort={sort} onSort={sortBy} />)}
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead className="px-4 py-3"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {sorted.length === 0 ? <EmptyRow colSpan={4} label="No odometer readings yet." /> : sorted.map((r) => (
-              <tr key={r.id} className="border-t border-hairline/40 hover:bg-wash/[0.03] transition-colors">
-                <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-4 py-3 tabular-nums">{distance(r.odometer)}</td>
-                <td className="px-4 py-3 text-secondary">{r.notes || '—'}</td>
-                <td className="px-4 py-3"><RowActions compact onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></td>
-              </tr>
+              <TableRow key={r.id}>
+                <TableCell className="px-4 py-3 whitespace-nowrap">{fmtDate(r.date)}</TableCell>
+                <TableCell className="px-4 py-3 tabular-nums">{distance(r.odometer)}</TableCell>
+                <TableCell className="px-4 py-3 text-muted-foreground">{r.notes || '—'}</TableCell>
+                <TableCell className="px-4 py-3"><RowActions compact onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} /></TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
+          </TableBody>
+        </Table>
+        </CardContent>
+      </Card>
       {form && (
         <OdometerForm vehicleId={vehicleId} record={form.id ? form : null}
           onClose={() => setForm(null)} onSaved={() => { setForm(null); reload(); onChange?.() }} />
@@ -2307,10 +2462,10 @@ function OdometerForm({ vehicleId, record, onClose, onSaved }) {
 
   return (
     <Modal title={record ? 'Edit reading' : 'Add odometer reading'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
-      <div><label className="label">Reading</label><input ref={readingRef} value={f.odometer} onChange={set('odometer')} inputMode="numeric" className="input" /></div>
-      <div><label className="label">Date</label><input type="date" value={f.date} onChange={set('date')} className="input" /></div>
-      <div><label className="label">Notes</label><input value={f.notes} onChange={set('notes')} className="input" /></div>
-      {error && <p className="text-xs text-bad">{error}</p>}
+      <div><Label className="mb-1.5">Reading</Label><Input ref={readingRef} value={f.odometer} onChange={set('odometer')} inputMode="numeric" /></div>
+      <div><Label className="mb-1.5">Date</Label><Input type="date" value={f.date} onChange={set('date')} /></div>
+      <div><Label className="mb-1.5">Notes</Label><Input value={f.notes} onChange={set('notes')} /></div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }
@@ -2339,23 +2494,24 @@ function ReminderTab({ vehicleId, distance, currentOdo, onOpenTires, onAddTireSe
           label="No reminders yet. Add one with an interval and it'll advance automatically each time you log that service."
           actionLabel="Add a reminder" onAction={() => setForm({})} />
       ) : (
-        <div className="space-y-2">
+        <ItemGroup className="gap-2">
           {rows.map((r) => {
             const progress = r.has_baseline ? reminderProgress(r, currentOdo) : null
             return (
-              <div key={r.id} className="card p-3">
+              <Item key={r.id} variant="outline" size="sm" role="listitem">
+                <ItemContent className="gap-0">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm font-medium truncate min-w-0">
+                  <ItemTitle className="min-w-0 truncate">
                     {r.description}
-                    {r.source === 'tire' && <span className="badge badge-not-due ml-1.5 font-normal">from tire set</span>}
-                  </p>
+                    {r.source === 'tire' && <Badge variant="secondary" className="font-normal">from tire set</Badge>}
+                  </ItemTitle>
                   <span className={`text-xs flex-shrink-0 tabular-nums ${reminderStatusClass(r)}`}>
                     {reminderStatus(r, currentOdo, units)}
                   </span>
                 </div>
                 <ReminderProgressBar r={r} progress={progress} />
                 <div className="flex items-center justify-between gap-2 mt-1">
-                  <p className="text-xs text-secondary min-w-0 truncate">
+                  <p className="text-xs text-muted-foreground min-w-0">
                     {r.is_recurring ? <>Every {intervalText(r, units)}</> : 'One-time'}
                     {/* Coerced: these flags arrive from SQLite as 0/1, and a bare
                         `0 &&` renders a literal "0" next to the label. */}
@@ -2367,20 +2523,21 @@ function ReminderTab({ vehicleId, distance, currentOdo, onOpenTires, onAddTireSe
                       <> · due by {fmtDate(r.due_date)} or at {distance(r.due_odometer)}</>
                     )}
                     {!r.has_baseline && (
-                      <span className="text-warn"> · log this service or set a starting point</span>
+                      <span className="text-warning"> · log this service or set a starting point</span>
                     )}
                   </p>
                   {/* Tire reminders have no row to edit — they follow the set. */}
                   {r.source === 'tire' ? (
-                    <button onClick={onOpenTires} className="btn-ghost text-xs flex-shrink-0">Tire set</button>
+                    <Button variant="ghost" size="sm" onClick={onOpenTires} className="flex-shrink-0">Tire set</Button>
                   ) : (
                     <RowActions onEdit={() => setForm(r)} onDelete={() => setToDelete(r)} />
                   )}
                 </div>
-              </div>
+                </ItemContent>
+              </Item>
             )
           })}
-        </div>
+        </ItemGroup>
       )}
       {form && (
         <ReminderForm vehicleId={vehicleId} record={form.id ? form : null} onAddTireSet={onAddTireSet}
@@ -2458,9 +2615,9 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
   return (
     <Modal title={record ? 'Edit reminder' : 'Add reminder'} onClose={onClose} footer={<FormFooter onClose={onClose} onSave={save} saving={saving} />}>
       <div>
-        <label className="label">Service</label>
+        <Label className="mb-1.5">Service</Label>
         <Combobox value={f.description} onChange={(v) => setF((s) => ({ ...s, description: v }))} options={serviceOptions} placeholder="Oil change" />
-        <p className="text-xs text-tertiary mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           {isNewService
             ? <>“{f.description.trim()}” will be saved as a new service type.</>
             : 'Match a service item so the reminder advances automatically when you log it.'}
@@ -2468,79 +2625,78 @@ function ReminderForm({ vehicleId, record, onAddTireSet, onClose, onSaved }) {
       </div>
 
       {suggestTires && (
-        <div className="rounded-lg border border-accent/40 bg-accent/5 p-3">
-          <p className="text-xs font-medium mb-1 flex items-center gap-1.5"><Disc3 size={13} className="text-accent" /> Track this as a tire set instead?</p>
-          <p className="text-xs text-secondary">
+        <Card size="sm" className="gap-0 border border-primary/40 bg-primary/5 shadow-none">
+          <CardContent>
+          <p className="text-xs font-medium mb-1 flex items-center gap-1.5"><Disc3 size={13} className="text-primary" /> Track this as a tire set instead?</p>
+          <p className="text-xs text-muted-foreground">
             {tireSetCount > 0
               ? 'Your tire sets already put a rotation reminder on this page — against whichever set is on the car, so the countdown pauses while a set is in the garage.'
               : 'A tire set counts miles per physical set (summer vs winter), reminds you to rotate whichever one is on the car, and records which set each rotation was done to. A plain reminder can’t tell them apart.'}
           </p>
-          <button type="button" onClick={onAddTireSet} className="btn-primary text-xs mt-2">
-            <Plus size={13} /> {tireSetCount > 0 ? 'Add another tire set' : 'Add a tire set'}
-          </button>
-          <p className="text-xs text-tertiary mt-1.5">Or carry on below for an ordinary reminder.</p>
-        </div>
+          <Button type="button" size="sm" onClick={onAddTireSet} className="mt-2">
+            <Plus /> {tireSetCount > 0 ? 'Add another tire set' : 'Add a tire set'}
+          </Button>
+          <p className="text-xs text-muted-foreground mt-1.5">Or carry on below for an ordinary reminder.</p>
+          </CardContent>
+        </Card>
       )}
 
       <div>
-        <label className="label">Repeats</label>
-        <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-inset/40">
-          {[{ v: true, label: 'Recurring' }, { v: false, label: 'One-time' }].map((o) => (
-            <button key={String(o.v)} type="button" onClick={() => setF((s) => ({ ...s, is_recurring: o.v }))}
-              className={`h-9 rounded-md text-sm font-medium transition-colors ${
- f.is_recurring === o.v ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'
- }`}>
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <Label className="mb-1.5">Repeats</Label>
+        <Tabs value={String(f.is_recurring)} onValueChange={(v) => setF((s) => ({ ...s, is_recurring: v === 'true' }))}>
+          <TabsList className="grid h-9 w-full grid-cols-2">
+            {[{ v: true, label: 'Recurring' }, { v: false, label: 'One-time' }].map((o) => (
+              <TabsTrigger key={String(o.v)} value={String(o.v)}>{o.label}</TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {f.is_recurring ? (
         <>
           <div>
-            <label className="label">Repeat every</label>
+            <Label className="mb-1.5">Repeat every</Label>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
-                <input value={f.interval_miles} onChange={set('interval_miles')} inputMode="numeric" className="input pr-12" placeholder="5000" aria-label="Distance interval" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tertiary pointer-events-none">{units.distance}</span>
+                <Input value={f.interval_miles} onChange={set('interval_miles')} inputMode="numeric" className="pr-12" placeholder="5000" aria-label="Distance interval" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{units.distance}</span>
               </div>
               <div className="relative">
-                <input value={f.interval_months} onChange={set('interval_months')} inputMode="numeric" className="input pr-16" placeholder="6" aria-label="Interval in months" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tertiary pointer-events-none">months</span>
+                <Input value={f.interval_months} onChange={set('interval_months')} inputMode="numeric" className="pr-16" placeholder="6" aria-label="Interval in months" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">months</span>
               </div>
             </div>
-            <p className="text-xs text-tertiary mt-1">Fill in one or both — it comes due at whichever happens first.</p>
+            <p className="text-xs text-muted-foreground mt-1">Fill in one or both — it comes due at whichever happens first.</p>
           </div>
 
           {!showBaseline ? (
-            <button type="button" onClick={() => setShowBaseline(true)} className="btn-ghost text-xs -ml-1">
-              <Plus size={12} /> Set a starting point (last done)
-            </button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowBaseline(true)} className="-ml-1">
+              <Plus /> Set a starting point (last done)
+            </Button>
           ) : (
-            <div className="space-y-3 border-t border-hairline/50 pt-3">
-              <p className="text-xs text-secondary">Last done (used until you log this service):</p>
+            <div className="space-y-3 border-t border-border/50 pt-3">
+              <p className="text-xs text-muted-foreground">Last done (used until you log this service):</p>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="label">Date</label><input type="date" value={f.base_date} onChange={set('base_date')} className="input" /></div>
-                <div><label className="label">Odometer</label><input value={f.base_odometer} onChange={set('base_odometer')} inputMode="numeric" className="input" /></div>
+                <div><Label className="mb-1.5">Date</Label><Input type="date" value={f.base_date} onChange={set('base_date')} /></div>
+                <div><Label className="mb-1.5">Odometer</Label><Input value={f.base_odometer} onChange={set('base_odometer')} inputMode="numeric" /></div>
               </div>
             </div>
           )}
         </>
       ) : (
         <div>
-          <label className="label">Due</label>
+          <Label className="mb-1.5">Due</Label>
           <div className="grid grid-cols-2 gap-3">
-            <div><input type="date" value={f.due_date} onChange={set('due_date')} className="input" aria-label="Due date" /></div>
+            <div><Input type="date" value={f.due_date} onChange={set('due_date')}  aria-label="Due date" /></div>
             <div className="relative">
-              <input value={f.due_odometer} onChange={set('due_odometer')} inputMode="numeric" className="input pr-8" placeholder="55000" aria-label="Due odometer" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tertiary pointer-events-none">{units.distance}</span>
+              <Input value={f.due_odometer} onChange={set('due_odometer')} inputMode="numeric" className="pr-8" placeholder="55000" aria-label="Due odometer" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{units.distance}</span>
             </div>
           </div>
-          <p className="text-xs text-tertiary mt-1">A date, an odometer reading, or both. It won't repeat after it's due.</p>
+          <p className="text-xs text-muted-foreground mt-1">A date, an odometer reading, or both. It won't repeat after it's due.</p>
         </div>
       )}
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </Modal>
   )
 }

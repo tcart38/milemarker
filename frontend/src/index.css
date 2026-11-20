@@ -1,332 +1,186 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
 
-/* ---------------------------------------------------------------------------
-   Design tokens
+@custom-variant dark (&:is(.dark *));
 
-   Two themes, one set of names. Every colour is a space-separated RGB triple so
-   Tailwind's `/opacity` modifiers keep working through the variable — which is
-   why components can say `text-secondary` once instead of carrying a `dark:`
-   twin for every colour.
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
 
-   Values follow Apple's system palette: a grouped-background canvas, cells that
-   separate by stepping up in lightness rather than by drawing a border, and
-   label greys pre-flattened against their own background (Apple specifies those
-   as translucent, but solid equivalents behave predictably over photos).
---------------------------------------------------------------------------- */
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.52 0.105 223.128);
+    --primary-foreground: oklch(0.984 0.019 200.873);
+    --secondary: oklch(0.967 0.001 286.375);
+    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    /* MileMarker status hues (not part of the shadcn preset): green = good,
+       amber = due soon, blue = upcoming / informational. */
+    --success: oklch(0.6 0.15 150);
+    --warning: oklch(0.68 0.16 65);
+    --info: oklch(0.55 0.15 250);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.809 0.105 251.813);
+    --chart-2: oklch(0.623 0.214 259.815);
+    --chart-3: oklch(0.546 0.245 262.881);
+    --chart-4: oklch(0.488 0.243 264.376);
+    --chart-5: oklch(0.424 0.199 265.638);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.609 0.126 221.723);
+    --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.45 0.085 224.283);
+    --primary-foreground: oklch(0.984 0.019 200.873);
+    --secondary: oklch(0.274 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --success: oklch(0.72 0.16 150);
+    --warning: oklch(0.78 0.15 70);
+    --info: oklch(0.7 0.13 250);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.809 0.105 251.813);
+    --chart-2: oklch(0.623 0.214 259.815);
+    --chart-3: oklch(0.546 0.245 262.881);
+    --chart-4: oklch(0.488 0.243 264.376);
+    --chart-5: oklch(0.424 0.199 265.638);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.715 0.143 215.221);
+    --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
 
 @layer base {
-  :root {
-    --canvas: 242 242 247;    /* systemGroupedBackground */
-    --surface: 255 255 255;   /* secondarySystemGroupedBackground — cards */
-    --inset: 240 240 245;     /* wells, fields, progress tracks */
-    --elevated: 255 255 255;  /* popovers, menus, sheets */
-    --hairline: 198 198 204;  /* separator */
-
-    --text-1: 0 0 0;          /* label */
-    --text-2: 85 85 92;       /* secondaryLabel — 7.4:1 on a card */
-    --text-3: 142 142 147;    /* tertiaryLabel — systemGray, decorative only */
-
-    /* Apple's system hues, walked down in lightness until each clears 4.5:1 on
-       both the canvas and a card. Undiluted systemBlue/Green/Orange sit at
-       3–4:1 on white, which is fine for a 44pt control and not for 12px text. */
-    --accent: 0 107 224;      /* systemBlue, AA on white; white-on-accent 5.0:1 */
-    --accent-hover: 0 92 195;
-
-    --ok: 29 126 56;          /* systemGreen */
-    --warn: 162 93 0;         /* systemOrange */
-    --bad: 210 43 37;         /* systemRed */
-    --info: 0 107 224;
-    --violet: 72 70 190;      /* systemIndigo */
-
-    /* Text sitting on a same-hue tint (badges) needs to go deeper still — the
-       tint lifts the background toward the text and eats the ratio. */
-    --ok-ink: 26 113 50;
-    --warn-ink: 144 82 0;
-    --bad-ink: 184 38 32;
-    --info-ink: 0 94 197;
-    --violet-ink: 72 70 190;
-
-    /* Large graphics — bars, rings, chart series, legend dots — keep Apple's
-       undiluted hues. WCAG asks 3:1 of non-text contrast, which these clear
-       against both the track and the card, so there's no reason to mute them. */
-    --ok-fill: 52 199 89;
-    --warn-fill: 255 149 0;
-    --bad-fill: 255 59 48;
-    --info-fill: 0 122 255;
-    --violet-fill: 88 86 214;
-
-    /* Hover/press wash — dark ink over light surfaces. */
-    --wash: 0 0 0;
-
-    /* Chart tooltips are dark in BOTH themes, so they carry their own token
-       and their contents must use fixed white, never a theme text token. */
-    --tooltip: 28 28 30;
-
-    color-scheme: light;
-  }
-
-  html.dark {
-    --canvas: 0 0 0;
-    --surface: 28 28 30;      /* #1C1C1E */
-    --inset: 44 44 46;        /* #2C2C2E */
-    --elevated: 44 44 46;
-    --hairline: 70 70 75;
-
-    --text-1: 255 255 255;
-    --text-2: 161 161 168;    /* 6.6:1 on a card */
-    --text-3: 124 124 130;    /* decorative only */
-
-    --accent: 10 132 255;     /* systemBlue (dark) */
-    --accent-hover: 74 162 255;
-
-    --ok: 48 209 88;          /* systemGreen (dark) */
-    --warn: 255 159 10;       /* systemOrange (dark) */
-    --bad: 255 69 58;         /* systemRed (dark) */
-    --info: 10 132 255;
-    --violet: 120 118 240;
-
-    --ok-ink: 48 209 88;
-    --warn-ink: 255 159 10;
-    --bad-ink: 255 82 72;
-    --info-ink: 39 146 255;
-    --violet-ink: 136 135 242;
-
-    --ok-fill: 48 209 88;
-    --warn-fill: 255 159 10;
-    --bad-fill: 255 69 58;
-    --info-fill: 10 132 255;
-    --violet-fill: 120 118 240;
-
-    /* Hover/press wash — light ink over dark surfaces. */
-    --wash: 255 255 255;
-
-    --tooltip: 72 72 76;
-
-    color-scheme: dark;
-  }
-
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
   html {
-    @apply bg-canvas text-primary font-sans antialiased;
+    @apply font-sans;
+    }
+}
+
+@layer base {
+  html {
     -webkit-tap-highlight-color: transparent;
   }
-
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--hairline)) transparent;
-  }
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: rgb(var(--hairline));
-    border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-  }
-
   /* Remove the 300ms tap delay / double-tap zoom on interactive elements. */
   button, a, input, select, textarea, label {
     touch-action: manipulation;
   }
-
-  /* Native controls follow the accent rather than the browser's default blue. */
   input[type='checkbox'], input[type='radio'], input[type='range'], progress {
-    accent-color: rgb(var(--accent));
-  }
-
-  @keyframes sheet-up {
-    from { transform: translateY(28px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes pop-in {
-    from { transform: scale(0.96); opacity: 0; }
-    to   { transform: scale(1);    opacity: 1; }
+    accent-color: var(--primary);
   }
 }
 
-@layer components {
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
 
-  /* ---------- Buttons ---------------------------------------------------- */
-
-  .btn {
-    @apply inline-flex items-center justify-center gap-1.5 px-3.5 h-9 rounded-lg text-sm font-medium
-           whitespace-nowrap transition-all duration-150 ease-apple cursor-pointer select-none
-           active:scale-[0.97] motion-reduce:transform-none
-           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60
-           focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
-           disabled:opacity-40 disabled:pointer-events-none;
+/* Horizontal scrollers (tab rows, filter rows) shouldn't show a scrollbar. */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
-  .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-hover;
-  }
-  /* Apple's tinted button — accent text on a wash of the accent. */
-  .btn-tinted {
-    @apply btn bg-accent/[0.11] text-info-ink hover:bg-accent/[0.18];
-  }
-  .btn-ghost {
-    @apply btn px-2.5 text-secondary hover:bg-wash/[0.07] hover:text-primary;
-  }
-  .btn-danger {
-    @apply btn bg-bad text-white hover:brightness-110;
-  }
-  .btn-danger-tinted {
-    @apply btn bg-bad/10 text-bad hover:bg-bad/[0.18];
-  }
-  /* Ghost button for always-dark surfaces (lightbox overlay). */
-  .btn-ghost-dark {
-    @apply btn text-white/70 hover:bg-white/10 hover:text-white;
-  }
-  /* Square icon button, no label. */
-  .btn-icon {
-    @apply btn w-9 px-0 text-secondary hover:bg-wash/[0.07] hover:text-primary;
-  }
+}
 
-  /* ---------- Surfaces --------------------------------------------------- */
-
-  /* Cards carry no border: the lightness step does the separating, the way iOS
-     grouped lists do. A whisper of shadow lifts white off the light canvas;
-     in dark mode #1C1C1E on #000 needs nothing at all. */
-  .card {
-    @apply bg-surface rounded-2xl shadow-card dark:shadow-none;
+/* Tailwind v4 dropped the pointer cursor on buttons; clickable things should
+   still look clickable. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='menuitem'],
+  label[for],
+  select {
+    cursor: pointer;
   }
-  .card-pad { @apply card p-4 sm:p-5; }
-  /* Elevated surfaces — popovers, menus, sheets. */
-  .pop {
-    @apply bg-elevated rounded-2xl shadow-pop ring-1 ring-hairline/40;
-  }
-  /* Recessed well inside a card — chart backdrops, nested groups. */
-  .well {
-    @apply bg-inset rounded-xl;
-  }
-
-  /* Grouped list: rows separated by hairlines, iOS-style. */
-  .list-group > * + * {
-    border-top: 1px solid rgb(var(--hairline) / 0.5);
-  }
-
-  /* ---------- Typography ------------------------------------------------- */
-
-  .title-lg { @apply text-2xl font-semibold text-primary; }
-  .title    { @apply text-xl font-semibold text-primary; }
-  .title-sm { @apply text-lg font-semibold text-primary; }
-  /* Section captions: sentence case, not shouty uppercase. Apple dropped
-     all-caps group headers years ago and the page reads far calmer without. */
-  .caption  { @apply text-sm font-medium text-secondary; }
-  .footnote { @apply text-xs text-secondary; }
-  .num      { font-variant-numeric: tabular-nums; }
-
-  /* ---------- Form controls ---------------------------------------------- */
-
-  /* 16px on mobile so iOS Safari doesn't auto-zoom the page on focus. */
-  .input {
-    @apply w-full bg-inset text-primary placeholder-tertiary
-           border border-transparent rounded-lg px-3 py-2.5 text-base sm:py-2 sm:text-sm
-           focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25
-           transition-[border-color,box-shadow] duration-150;
-  }
-  .label {
-    @apply block text-xs font-medium text-secondary mb-1.5;
-  }
-  select.input {
-    @apply appearance-none pr-8 bg-no-repeat cursor-pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-position: right 0.75rem center;
-    background-size: 0.75rem;
-  }
-  textarea.input { @apply py-2.5; }
-
-  /* Apple's segmented control — the tab metaphor throughout the app. */
-  .segmented {
-    @apply inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-inset;
-  }
-  /* Segments sit side by side with a hairline between unselected neighbours,
-     the way UISegmentedControl does. */
-  .segmented > .segment + .segment:not(.segment-on) { @apply relative; }
-  .segmented > .segment:not(.segment-on) + .segment:not(.segment-on)::before {
-    content: '';
-    @apply absolute left-0 top-1.5 bottom-1.5 w-px bg-hairline/60;
-  }
-  .segment {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 h-7 rounded-[0.4375rem]
-           text-xs font-medium text-secondary whitespace-nowrap cursor-pointer select-none
-           transition-all duration-150 ease-apple hover:text-primary;
-  }
-  .segment-on {
-    @apply bg-surface text-primary shadow-sm dark:bg-[rgb(99_99_102)] dark:shadow-none;
-  }
-
-  /* ---------- Stats ------------------------------------------------------ */
-
-  .stat { @apply card p-4; }
-  .stat-label { @apply text-xs font-medium text-secondary; }
-  .stat-value { @apply text-xl font-semibold text-primary mt-1 num; }
-  /* Hero figure — the one number a card exists to show. */
-  .stat-hero { @apply text-3xl font-semibold text-primary num; }
-
-  /* ---------- Badges ----------------------------------------------------- */
-
-  .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium; }
-  .badge-overdue  { @apply bg-bad/[0.13] text-bad-ink; }
-  .badge-due-soon { @apply bg-warn/[0.13] text-warn-ink; }
-  .badge-upcoming { @apply bg-info/[0.13] text-info-ink; }
-  .badge-not-due  { @apply bg-wash/[0.07] text-secondary; }
-
-  /* Record type badges (merged Service tab) */
-  .badge-service { @apply bg-ok/[0.13] text-ok-ink; }
-  .badge-repair  { @apply bg-bad/[0.13] text-bad-ink; }
-  .badge-upgrade { @apply bg-violet/[0.13] text-violet-ink; }
-
-  /* ---------- Chips ------------------------------------------------------ */
-
-  .chip {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 h-8 rounded-full text-xs font-medium
-           cursor-pointer select-none whitespace-nowrap transition-colors duration-150;
-  }
-  .chip-on  { @apply bg-accent text-white; }
-  .chip-off { @apply bg-inset text-secondary hover:text-primary; }
-
-  /* ---------- Floating action button ------------------------------------- */
-
-  .fab {
-    @apply sm:hidden fixed z-30 inline-flex items-center gap-2 h-14 px-5 rounded-full
-           bg-accent text-white text-sm font-semibold shadow-lg shadow-accent/30
-           active:scale-95 transition ease-apple motion-reduce:transform-none;
-    right: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
-
-  /* ---------- Motion ----------------------------------------------------- */
-
-  .animate-sheet { animation: sheet-up 280ms cubic-bezier(0.32, 0.72, 0, 1); }
-  .animate-fade  { animation: fade-in 160ms ease-out; }
-  .animate-pop   { animation: pop-in 180ms cubic-bezier(0.32, 0.72, 0, 1); }
-
   @media (prefers-reduced-motion: reduce) {
-    .animate-sheet, .animate-fade, .animate-pop { animation: none; }
-  }
-}
-
-@layer utilities {
-  /* Horizontal scrollers (segmented controls, filter rows) shouldn't show a
-     scrollbar — the overflow is a fallback for narrow screens, not a feature. */
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-}
-
-@layer components {
-  /* Desktop sidebar row. Selected state is a tint rather than macOS's solid
-     accent fill — calmer next to a page that is mostly white cards. */
-  .side-item {
-    @apply w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-sm font-medium
-           text-secondary whitespace-nowrap cursor-pointer transition-colors duration-150
-           hover:bg-wash/[0.06] hover:text-primary;
-  }
-  .side-item-on {
-    @apply bg-accent/[0.12] text-info-ink hover:bg-accent/[0.16] hover:text-info-ink;
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
