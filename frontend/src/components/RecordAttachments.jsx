@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Paperclip, FileText, Trash2 } from 'lucide-react'
 import { getAttachments, deleteAttachment, attachmentUrl } from '../api/client.js'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { Item, ItemGroup, ItemMedia, ItemContent, ItemTitle, ItemActions } from '@/components/ui/item'
 import Lightbox from './Lightbox.jsx'
 import ConfirmDialog from './ConfirmDialog.jsx'
 
@@ -39,43 +43,51 @@ export default function RecordAttachments({ vehicleId, recordType, recordId, pen
   const removeExisting = async (id) => { await deleteAttachment(id); load() }
 
   const Thumb = ({ name, url, onClick }) => (
-    <button type="button" onClick={onClick} className="w-9 h-9 rounded bg-inset flex items-center justify-center overflow-hidden flex-shrink-0">
-      {isImage(name) && url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <FileText size={15} className="text-secondary" />}
-    </button>
+    <Button type="button" variant="ghost" size="icon" aria-label={`View ${name}`} onClick={onClick} className="size-9 rounded bg-muted overflow-hidden p-0">
+      {isImage(name) && url ? <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" /> : <FileText className="text-muted-foreground" />}
+    </Button>
+  )
+
+  const DeleteBtn = ({ label, onClick }) => (
+    <Tooltip>
+      <TooltipTrigger
+        render={<Button type="button" variant="ghost" size="icon-xs" aria-label={`${label}`} onClick={onClick} className="text-muted-foreground hover:text-destructive" />}
+      >
+        <Trash2 />
+      </TooltipTrigger>
+      <TooltipContent>{label.split(' ')[0]}</TooltipContent>
+    </Tooltip>
   )
 
   return (
     <div>
-      <label className="label">Receipts & documents</label>
-      <div className="space-y-1.5">
+      <Label className="mb-1.5">Receipts & documents</Label>
+      <ItemGroup className="gap-1.5">
         {existing.map((a) => (
-          <div key={`e${a.id}`} className="flex items-center gap-2">
-            <Thumb name={a.filename} url={attachmentUrl(a.id)} onClick={() => setView({ attachment: a })} />
-            <span className="text-sm truncate flex-1">{a.filename}</span>
-            <button type="button" onClick={() => setToDelete(a)} className="text-secondary hover:text-bad p-1"><Trash2 size={13} /></button>
-          </div>
+          <Item key={`e${a.id}`} size="xs" className="p-0">
+            <ItemMedia><Thumb name={a.filename} url={attachmentUrl(a.id)} onClick={() => setView({ attachment: a })} /></ItemMedia>
+            <ItemContent><ItemTitle className="max-w-full truncate">{a.filename}</ItemTitle></ItemContent>
+            <ItemActions><DeleteBtn label={`Delete ${a.filename}`} onClick={() => setToDelete(a)} /></ItemActions>
+          </Item>
         ))}
         {pending.map((f, i) => (
-          <div key={`p${i}`} className="flex items-center gap-2">
-            <Thumb name={f.name} url={previews[i]} onClick={() => setView({ attachment: { filename: f.name }, src: previews[i] })} />
-            <span className="text-sm truncate flex-1">{f.name} <span className="text-xs text-tertiary">· pending</span></span>
-            <button type="button" onClick={() => removePending(i)} className="text-secondary hover:text-bad p-1"><Trash2 size={13} /></button>
-          </div>
+          <Item key={`p${i}`} size="xs" className="p-0">
+            <ItemMedia><Thumb name={f.name} url={previews[i]} onClick={() => setView({ attachment: { filename: f.name }, src: previews[i] })} /></ItemMedia>
+            <ItemContent><ItemTitle className="max-w-full truncate">{f.name} <span className="text-xs font-normal text-muted-foreground">· pending</span></ItemTitle></ItemContent>
+            <ItemActions><DeleteBtn label={`Remove ${f.name}`} onClick={() => removePending(i)} /></ItemActions>
+          </Item>
         ))}
-      </div>
-      <div
+      </ItemGroup>
+      <Button
+        type="button" variant="outline"
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`mt-1.5 flex items-center justify-center gap-1.5 border-2 border-dashed rounded-lg py-2.5 text-xs cursor-pointer transition-colors ${
- dragging
- ? 'border-accent bg-accent/5 text-accent'
- : 'border-hairline/50 text-secondary hover:border-accent hover:text-accent'
- }`}
+        className={`mt-1.5 w-full border-dashed text-xs ${dragging ? 'border-primary bg-primary/5 text-primary' : 'text-muted-foreground hover:text-primary'}`}
       >
-        <Paperclip size={13} /> {dragging ? 'Drop to attach' : <>Drop files or <span className="font-medium">attach receipt</span></>}
-      </div>
+        <Paperclip /> {dragging ? 'Drop to attach' : <>Drop files or <span className="font-medium">attach receipt</span></>}
+      </Button>
       <input ref={inputRef} type="file" multiple accept="image/*,application/pdf" className="hidden"
         onChange={(e) => { if (e.target.files.length) addFiles(e.target.files); e.target.value = '' }} />
 

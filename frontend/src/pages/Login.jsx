@@ -1,5 +1,11 @@
 import React, { useState } from 'react'
+import { Car } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Spinner } from '@/components/ui/spinner'
 
 // Shown in place of the whole app when login is enabled and there's no session.
 export default function Login() {
@@ -18,27 +24,35 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <form onSubmit={submit} className="card p-6 w-full max-w-sm space-y-4">
-        <div className="flex items-center gap-2.5">
-          <img src="/favicon.svg" alt="" className="w-8 h-8" />
-          <h1 className="title-lg">MileMarker</h1>
-        </div>
-        <div>
-          <label className="label" htmlFor="login-user">Username</label>
-          <input id="login-user" className="input" autoComplete="username" autoCapitalize="none"
-            autoFocus value={username} onChange={(e) => setUsername(e.target.value)} required />
-        </div>
-        <div>
-          <label className="label" htmlFor="login-pass">Password</label>
-          <input id="login-pass" type="password" className="input" autoComplete="current-password"
-            value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </div>
-        {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-        <button type="submit" disabled={busy} className="btn-primary w-full disabled:opacity-50">
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Car className="size-5 text-primary" /> MileMarker
+          </CardTitle>
+          <CardDescription>Sign in to continue.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={submit}>
+            <FieldGroup className="gap-4">
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor="login-user">Username</FieldLabel>
+                <Input id="login-user" autoComplete="username" autoCapitalize="none" autoFocus
+                  value={username} onChange={(e) => setUsername(e.target.value)} required />
+              </Field>
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor="login-pass">Password</FieldLabel>
+                <Input id="login-pass" type="password" autoComplete="current-password"
+                  value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </Field>
+              {error && <FieldError>{error}</FieldError>}
+              <Button type="submit" disabled={busy} className="w-full">
+                {busy ? <><Spinner /> Signing in…</> : 'Sign in'}
+              </Button>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }
