@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { X, Plus } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
 // Multi-item chip input: pick from presets or type custom; each entry becomes a
 // removable chip. `value` is an array of strings.
@@ -28,12 +31,19 @@ export default function ItemsInput({ value = [], onChange, options = [], placeho
 
   return (
     <div ref={ref} className="relative">
-      <div className="input flex flex-wrap gap-1.5 items-center min-h-[2.5rem] h-auto py-1.5">
+      <div className="flex min-h-8 h-auto w-full flex-wrap items-center gap-1.5 rounded-2xl border border-transparent bg-input/50 px-2.5 py-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
         {value.map((item) => (
-          <span key={item} className="inline-flex items-center gap-1 bg-accent/10 text-accent rounded-md pl-2 pr-1 py-0.5 text-xs font-medium">
+          <Badge key={item} variant="secondary" className="gap-1 pr-1">
             {item}
-            <button type="button" onClick={() => remove(item)} className="hover:text-bad"><X size={11} /></button>
-          </span>
+            <Tooltip>
+              <TooltipTrigger
+                render={<Button type="button" variant="ghost" size="icon-xs" aria-label={`Remove ${item}`} onClick={() => remove(item)} className="size-4 rounded-full hover:text-destructive [&_svg]:size-3" />}
+              >
+                <X />
+              </TooltipTrigger>
+              <TooltipContent>{`Remove ${item}`}</TooltipContent>
+            </Tooltip>
+          </Badge>
         ))}
         <input
           value={text}
@@ -44,22 +54,21 @@ export default function ItemsInput({ value = [], onChange, options = [], placeho
             if (e.key === 'Backspace' && !text && value.length) remove(value[value.length - 1])
           }}
           placeholder={value.length ? '' : placeholder}
-          className="flex-1 min-w-[8ch] bg-transparent outline-none text-sm py-0.5"
+          aria-label={placeholder}
+          className="flex-1 min-w-[8ch] bg-transparent outline-none text-sm py-0.5 placeholder:text-muted-foreground"
         />
       </div>
       {open && (filtered.length > 0 || q) && (
-        <div className="absolute z-30 left-0 right-0 mt-1.5 pop p-1.5 max-h-56 overflow-y-auto animate-pop">
+        <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-2xl bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 p-1.5 max-h-56 overflow-y-auto animate-in fade-in-0 zoom-in-95">
           {q && !has(text) && (
-            <button type="button" onClick={() => add(text)}
-              className="w-full text-left px-2.5 py-1.5 rounded-md text-sm hover:bg-wash/[0.06] flex items-center gap-1.5">
-              <Plus size={12} className="text-accent" /> Add “{text.trim()}”
-            </button>
+            <Button type="button" variant="ghost" onClick={() => add(text)} className="w-full justify-start font-normal">
+              <Plus className="text-primary" /> Add “{text.trim()}”
+            </Button>
           )}
           {filtered.map((o) => (
-            <button key={o} type="button" onClick={() => add(o)}
-              className="w-full text-left px-2.5 py-1.5 rounded-md text-sm hover:bg-wash/[0.06] transition-colors">
+            <Button key={o} type="button" variant="ghost" onClick={() => add(o)} className="w-full justify-start font-normal">
               {o}
-            </button>
+            </Button>
           ))}
         </div>
       )}

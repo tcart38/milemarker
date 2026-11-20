@@ -16,7 +16,7 @@ const apply = (resolved) => {
   // Keep the browser chrome (iOS status bar, Android toolbar) in step with the
   // canvas, otherwise the installed PWA shows a mismatched band at the top.
   const meta = document.querySelector('meta[name="theme-color"]:not([media])')
-  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#000000' : '#f2f2f7')
+  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0a0a0a' : '#ffffff')
 }
 
 export function ThemeProvider({ children }) {
