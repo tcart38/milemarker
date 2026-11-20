@@ -65,7 +65,7 @@ Single container, no compose needed:
 |---|---|---|
 | `PORT` | `3002` | Port the server listens on |
 | `DATA_DIR` | `/data` | Writable folder for the SQLite database and uploads — persist this |
-| `ALLOWED_HOSTS` | *(empty)* | Extra hostnames allowed in the `Host` header, comma-separated. A leading dot (`.example.com`) allows a whole domain; `*` disables the check (see Security) |
+| `ALLOWED_HOSTS` | *(empty)* | Extra hostnames allowed in the `Host` header, on top of those set in Settings → Network. Comma-separated; a leading dot (`.example.com`) allows a whole domain; `*` disables the check (see Security) |
 | `PUID` / `PGID` | `1000` / `1000` | User/group the app runs as; `/data` is chowned to this at startup |
 | `MAX_UPLOAD_SIZE_MB` | `1024` | Max size of a single imported/restored file in MB (raise it if a LubeLogger photo or the database itself trips "File too large") |
 | `MAX_IMPORT_FILES` | `100000` | Max number of files in one LubeLogger import |
@@ -75,14 +75,11 @@ Units, currency, service types, and theme are configured in the app under **Sett
 
 ## Behind a reverse proxy (nginx, etc.)
 
-MileMarker only accepts requests whose `Host` header is `localhost`, a `.local` name, or an IP address. When you serve it under your own domain, add that domain to `ALLOWED_HOSTS` or every request returns `Host "…" not allowed`:
+MileMarker only accepts requests whose `Host` header is `localhost`, a `.local` name, or an IP address. To use your own domain, open MileMarker by its IP address, go to **Settings → Network**, and add the domain. No restart is needed. Until you do, visiting the domain shows a page with these steps.
 
-```yaml
-environment:
-  ALLOWED_HOSTS: milemarker.example.com
-```
+Separate several names with commas. A leading dot (`.example.com`) allows that domain and every subdomain. You can also set the same list with the `ALLOWED_HOSTS` env var (an Unraid container variable or compose `environment:` entry). `ALLOWED_HOSTS=*` turns the check off entirely; only do that if your proxy requires its own login, because the check is what stops DNS-rebinding attacks from other websites.
 
-On Unraid, add it as a container variable. Use a leading dot (`.example.com`) to allow that domain and every subdomain. `*` turns the check off entirely; only do that if your proxy requires its own login, because the check is what stops DNS-rebinding attacks from other websites. A minimal nginx site:
+A minimal nginx site:
 
 ```nginx
 server {

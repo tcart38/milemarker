@@ -478,6 +478,48 @@ function ImportCard() {
   )
 }
 
+/* Hostnames MileMarker answers to besides localhost, .local names and IPs:
+   needed when it's served under a custom domain through a reverse proxy. */
+function NetworkCard() {
+  const { settings, setSettings } = useSettings()
+  const [value, setValue] = useState(settings.allowed_hosts || '')
+  const [status, setStatus] = useState(null)
+  useEffect(() => { setValue(settings.allowed_hosts || '') }, [settings.allowed_hosts])
+  const dirty = value.trim() !== (settings.allowed_hosts || '')
+
+  const save = async () => {
+    setStatus(null)
+    try {
+      const updated = await updateSettings({ allowed_hosts: value })
+      setSettings((s) => ({ ...s, ...updated }))
+      setStatus('Saved')
+    } catch (e) {
+      setStatus(e.message || 'Could not save')
+    }
+  }
+
+  return (
+    <SettingsCard
+      title="Network"
+      description="Using a custom domain through a reverse proxy? Add it here so MileMarker accepts it. Separate names with commas. Start with a dot (.example.com) to allow a whole domain."
+    >
+      <div className="flex gap-2">
+        <input
+          className="input flex-1"
+          placeholder="milemarker.example.com"
+          value={value}
+          onChange={(e) => { setValue(e.target.value); setStatus(null) }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && dirty) save() }}
+          spellCheck={false}
+          autoCapitalize="off"
+        />
+        <button className="btn-primary disabled:opacity-50" onClick={save} disabled={!dirty}>Save</button>
+      </div>
+      {status && <p className="footnote">{status}</p>}
+    </SettingsCard>
+  )
+}
+
 export default function Settings() {
   const { setCrumb } = useOutletContext()
   const navigate = useNavigate()
@@ -543,6 +585,7 @@ export default function Settings() {
         </SettingRow>
       </SettingsCard>
 
+      <NetworkCard />
       <ServiceTypes />
       <CsvImportCard />
       <ImportCard />
