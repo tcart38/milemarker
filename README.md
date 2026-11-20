@@ -70,11 +70,7 @@ Single container, no compose needed:
 | `MAX_UPLOAD_SIZE_MB` | `1024` | Max size of a single imported/restored file in MB (raise it if a LubeLogger photo or the database itself trips "File too large") |
 | `MAX_IMPORT_FILES` | `100000` | Max number of files in one LubeLogger import |
 | `NODE_ENV` | — | `production` in Docker; enables serving the built frontend |
-| `AUTH_PASSWORD_HASH` | *(empty)* | bcrypt hash of the login password; setting it (or `AUTH_PASSWORD`) turns login on (see Optional login) |
-| `AUTH_PASSWORD` | *(empty)* | Plain-text alternative to `AUTH_PASSWORD_HASH` |
-| `AUTH_USERNAME` | `admin` | Login username |
-| `AUTH_SESSION_DAYS` | `30` | How long a sign-in lasts without a visit |
-| `SESSION_SECRET` | *(generated)* | Signs session cookies; generated into `DATA_DIR/.session-secret` when unset |
+| `AUTH_DISABLED` | *(empty)* | `true` turns the optional login off and removes its account; use it if you're locked out (see Optional login) |
 | `TRUST_PROXY` | `loopback, linklocal, uniquelocal` | Which proxies' `X-Forwarded-*` headers to trust (Express [`trust proxy`](https://expressjs.com/en/guide/behind-proxies.html)); `false` ignores them |
 
 Units, currency, service types, and theme are configured in the app under **Settings**.
@@ -91,29 +87,15 @@ Settings → *Data* → **Download backup** produces a zip containing the databa
 
 ## Optional login
 
-Login is **off by default**, so existing installs keep working unchanged. Turn it on by giving MileMarker a password; there is one account, which sees the whole garage.
+Login is **off by default**, so existing installs keep working unchanged. To turn it on, open **Settings → Sign-in → Turn on sign-in** and choose a username and password. There's one account, which sees the whole garage. No container variables or commands are needed.
 
-1. Generate a bcrypt hash of your password (it's not echoed; use your container's name if it isn't `milemarker`):
+Once it's on, every device has to sign in. The same Settings card lets you sign out, change the password (which signs out your other devices) or turn sign-in off again; the last two ask for the current password. Sign-ins last 30 days from the last visit and survive restarts. Sign-in attempts are rate-limited to 10 failures per 15 minutes per IP.
 
-   ```sh
-   docker exec -it milemarker node src/auth/hash-password.js
-   ```
+The account and sessions are kept in `DATA_DIR/auth.db`, separate from the main database, so backups never contain them and restoring a backup doesn't change your login.
 
-2. Add it to the container's environment and recreate the container. In `docker-compose.yml`, write every `$` in the hash as `$$`, because Compose treats `$` as a variable (on Unraid or with `docker run -e`, paste it as-is):
+**Locked out?** Add the container variable `AUTH_DISABLED` = `true` (on Unraid: edit the container → *Add another Path, Port, Variable...* → Variable) and apply. That removes the account and keeps sign-in off. Then remove the variable, apply again, and set up a new password in Settings.
 
-   ```yaml
-   environment:
-     AUTH_USERNAME: admin
-     AUTH_PASSWORD_HASH: "$$2b$$12$$...."
-   ```
-
-   `AUTH_PASSWORD: something` also works if you'd rather not hash it, but then the password sits in plain text in your config.
-
-Once on, every API call needs a session; the app shows a sign-in screen, and **Settings → Account → Sign out** ends the session (and clears data cached for offline use on that device). Sessions last `AUTH_SESSION_DAYS` (default 30) after the last visit, are stored in `DATA_DIR/sessions.db` so they survive restarts, and are never included in backups. Sign-in attempts are rate-limited to 10 failures per 15 minutes per IP.
-
-Behind an HTTPS reverse proxy, forward `X-Forwarded-Proto` (and `X-Forwarded-For`) so the session cookie is marked `Secure` and rate limiting sees real client IPs. Proxies on private-network addresses (the usual Docker or LAN setup) are trusted by default; adjust with `TRUST_PROXY` if yours isn't.
-
-Forgot the password? Generate a new hash and replace `AUTH_PASSWORD_HASH`, or remove it to turn login off. To sign out every device, delete `DATA_DIR/sessions.db` and restart.
+Behind an HTTPS reverse proxy, forward `X-Forwarded-Proto` (and `X-Forwarded-For`) so the session cookie is marked `Secure` and rate limiting sees real client IPs. Proxies on private-network addresses, the usual Docker or LAN setup, are trusted by default; adjust with `TRUST_PROXY` if yours isn't.
 
 Built on [express-session](https://github.com/expressjs/session), [bcryptjs](https://github.com/dcodeIO/bcrypt.js) and [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit).
 

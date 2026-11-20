@@ -1,20 +1,14 @@
-import Database from 'better-sqlite3'
 import session from 'express-session'
 
 /**
- * express-session store backed by its own SQLite file (DATA_DIR/sessions.db).
- *
- * Kept apart from milemarker.db on purpose: backups never carry login
- * sessions, and a restore (which swaps milemarker.db on disk) doesn't sign
- * everyone out or break this store's open handle. express-session does the
- * security-sensitive parts (id generation, cookie signing); this only persists
- * the session JSON so logins survive a container restart.
+ * express-session store backed by the login database (DATA_DIR/auth.db).
+ * express-session does the security-sensitive parts (id generation, cookie
+ * signing); this only persists the session JSON so logins survive a restart.
  */
 export class SqliteStore extends session.Store {
-  constructor(file) {
+  constructor(db) {
     super()
-    this.db = new Database(file)
-    this.db.pragma('journal_mode = WAL')
+    this.db = db
     this.db.exec(`CREATE TABLE IF NOT EXISTS sessions (
       sid TEXT PRIMARY KEY,
       sess TEXT NOT NULL,
@@ -27,6 +21,7 @@ export class SqliteStore extends session.Store {
       touch: this.db.prepare('UPDATE sessions SET expires = ? WHERE sid = ?'),
       destroy: this.db.prepare('DELETE FROM sessions WHERE sid = ?'),
       prune: this.db.prepare('DELETE FROM sessions WHERE expires <= ?'),
+      clearOthers: this.db.prepare('DELETE FROM sessions WHERE sid != ?'),
     }
     this.prune()
     setInterval(() => this.prune(), 60 * 60 * 1000).unref()
@@ -38,6 +33,9 @@ export class SqliteStore extends session.Store {
   }
 
   prune() { this.q.prune.run(Date.now()) }
+
+  // Sign out every other device (after a password change or turning login off).
+  clearOthers(keepSid) { this.q.clearOthers.run(keepSid || '') }
 
   get(sid, cb) {
     try {

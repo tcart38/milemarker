@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { getAuthStatus, login as apiLogin, logout as apiLogout, UNAUTHORIZED_EVENT } from '../api/client.js'
+import { getAuthStatus, login as apiLogin, logout as apiLogout, setupAuth, updateAccount, disableAuth, UNAUTHORIZED_EVENT } from '../api/client.js'
 
 const AuthContext = createContext(null)
 
@@ -24,7 +24,8 @@ export function AuthProvider({ children }) {
   useEffect(() => { refresh() }, [refresh])
 
   useEffect(() => {
-    const onUnauthorized = () => setStatus((s) => (s?.enabled ? { ...s, authenticated: false, username: null } : s))
+    // Only the API gate sends these, so login is on (maybe just turned on from another device).
+    const onUnauthorized = () => setStatus((s) => ({ ...s, enabled: true, authenticated: false, username: null }))
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
   }, [])
@@ -40,8 +41,13 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Settings → Sign-in: turn on, change, turn off.
+  const setup = useCallback(async (username, password) => setStatus(await setupAuth(username, password)), [])
+  const update = useCallback(async (body) => setStatus(await updateAccount(body)), [])
+  const disable = useCallback(async (password) => setStatus(await disableAuth(password)), [])
+
   return (
-    <AuthContext.Provider value={{ status, login, logout }}>
+    <AuthContext.Provider value={{ status, login, logout, setup, update, disable }}>
       {children}
     </AuthContext.Provider>
   )

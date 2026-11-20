@@ -9,7 +9,9 @@ const noteAuth = (res) => {
 }
 
 async function request(path, options = {}) {
-  const res = noteAuth(await fetch(`${BASE}${path}`, {
+  // /auth/* answers 401 for a wrong password; that's not a lost session.
+  const check = path.startsWith('/auth/') ? (r) => r : noteAuth
+  const res = check(await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -25,6 +27,9 @@ async function request(path, options = {}) {
 export const getAuthStatus = () => request('/auth/status')
 export const login = (username, password) => request('/auth/login', { method: 'POST', body: { username, password } })
 export const logout = () => request('/auth/logout', { method: 'POST' })
+export const setupAuth = (username, password) => request('/auth/setup', { method: 'POST', body: { username, password } })
+export const updateAccount = (body) => request('/auth/account', { method: 'POST', body })
+export const disableAuth = (current_password) => request('/auth/disable', { method: 'POST', body: { current_password } })
 
 // Vehicles
 export const getVehicles = (includeSold = false) => request(includeSold ? '/vehicles?all=1' : '/vehicles')

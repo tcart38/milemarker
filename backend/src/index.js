@@ -51,7 +51,7 @@ app.use((req, res, next) => {
 
 app.use(express.json())
 
-// Optional login (off unless AUTH_PASSWORD / AUTH_PASSWORD_HASH is set).
+// Optional login, turned on from Settings (off until an account is created).
 // Must come before the API routers so it can gate them.
 const auth = setupAuth(app)
 
@@ -78,5 +78,5 @@ if (config.isProd) {
 app.listen(config.port, () => {
   console.log(`MileMarker running on http://localhost:${config.port}`)
   console.log(`  Data dir : ${config.dataDir}`)
-  console.log(`  Login    : ${auth.enabled ? `on (user "${auth.username}")` : 'off'}`)
+  console.log(`  Login    : ${auth.forcedOff ? 'off (AUTH_DISABLED)' : auth.enabled() ? 'on' : 'off'}`)
 })

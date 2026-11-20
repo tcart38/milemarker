@@ -479,15 +479,96 @@ function ImportCard() {
   )
 }
 
-// Only shown when login is enabled on the server.
-function AccountCard() {
-  const { status, logout } = useAuth()
-  if (!status?.enabled) return null
+/* Optional login. Off until an account is created here; the account and its
+   sessions live on the server in auth.db, outside backups. */
+function SignInCard() {
+  const { status, logout, setup, update, disable } = useAuth()
+  const [mode, setMode] = useState(null) // 'setup' | 'password' | 'disable'
+  const [form, setForm] = useState({})
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  if (!status) return null
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const open = (m) => { setMode(m); setError(null); setForm(m === 'setup' ? { username: 'admin' } : {}) }
+  const run = (fn) => async (e) => {
+    e.preventDefault()
+    if (form.password !== undefined && form.password !== form.confirm) { setError('Passwords don’t match'); return }
+    setBusy(true); setError(null)
+    try { await fn(); setMode(null); setForm({}) }
+    catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  const input = (k, label, type = 'password', autoComplete = 'new-password') => (
+    <div key={k}>
+      <label className="label" htmlFor={`signin-${k}`}>{label}</label>
+      <input id={`signin-${k}`} type={type} className="input" autoComplete={autoComplete}
+        value={form[k] ?? ''} onChange={set(k)} required />
+    </div>
+  )
+  const actions = (label, danger = false) => (
+    <div className="flex gap-2 justify-end">
+      <button type="button" onClick={() => setMode(null)} className="btn-ghost">Cancel</button>
+      <button type="submit" disabled={busy} className={`${danger ? 'btn-danger' : 'btn-primary'} disabled:opacity-50`}>{label}</button>
+    </div>
+  )
+  const errorLine = error && <p className="text-sm text-bad" role="alert">{error}</p>
+
+  if (status.forcedOff) {
+    return (
+      <SettingsCard title="Sign-in" description="Sign-in is turned off by the AUTH_DISABLED container variable. Remove that variable and restart the container to set it up again here." />
+    )
+  }
+
+  if (!status.enabled) {
+    return (
+      <SettingsCard title="Sign-in" description="Anyone who can reach MileMarker can use it. Turn on sign-in to require a username and password, for example when it’s reachable from outside your home network.">
+        {mode === 'setup' ? (
+          <form onSubmit={run(() => setup(form.username, form.password))} className="space-y-3">
+            {input('username', 'Username', 'text', 'username')}
+            {input('password', 'Password (at least 8 characters)')}
+            {input('confirm', 'Confirm password')}
+            <p className="footnote">You’ll stay signed in on this device. If you ever get locked out, add the container variable AUTH_DISABLED=true and restart to turn sign-in off.</p>
+            {errorLine}
+            {actions('Turn on sign-in')}
+          </form>
+        ) : (
+          <button onClick={() => open('setup')} className="btn-primary">Turn on sign-in</button>
+        )}
+      </SettingsCard>
+    )
+  }
+
   return (
-    <SettingsCard title="Account">
-      <SettingRow label={`Signed in as ${status.username}`} hint="Sign-in is managed with AUTH_* environment variables.">
+    <SettingsCard title="Sign-in">
+      <SettingRow label={`Signed in as ${status.username}`} hint="Sign-in is required on every device.">
         <button onClick={logout} className="btn-ghost w-full justify-center"><LogOut size={15} /> Sign out</button>
       </SettingRow>
+      {mode === 'password' && (
+        <form onSubmit={run(() => update({ current_password: form.current, password: form.password }))} className="space-y-3">
+          {input('current', 'Current password', 'password', 'current-password')}
+          {input('password', 'New password (at least 8 characters)')}
+          {input('confirm', 'Confirm new password')}
+          <p className="footnote">Other devices will be signed out.</p>
+          {errorLine}
+          {actions('Change password')}
+        </form>
+      )}
+      {mode === 'disable' && (
+        <form onSubmit={run(() => disable(form.current))} className="space-y-3">
+          <p className="text-sm">Anyone who can reach MileMarker will be able to use it without signing in.</p>
+          {input('current', 'Current password', 'password', 'current-password')}
+          {errorLine}
+          {actions('Turn off sign-in', true)}
+        </form>
+      )}
+      {!mode && (
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => open('password')} className="btn-tinted">Change password</button>
+          <button onClick={() => open('disable')} className="btn-danger-tinted">Turn off sign-in</button>
+        </div>
+      )}
     </SettingsCard>
   )
 }
@@ -561,7 +642,7 @@ export default function Settings() {
       <CsvImportCard />
       <ImportCard />
       <DataCard />
-      <AccountCard />
+      <SignInCard />
 
       <p className="footnote text-center pt-2 pb-4">MileMarker v{settings.version || '—'}</p>
     </div>
