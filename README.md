@@ -102,7 +102,7 @@ server {
 }
 ```
 
-MileMarker uses no cookies, sessions, or CORS, so there are no secure-cookie or trusted-origin settings to change for HTTPS.
+Keep the `X-Forwarded-Proto` line. Without login enabled, MileMarker uses no cookies, sessions, or CORS, so HTTPS needs no other settings. With login enabled, that header is what marks the session cookie `Secure`.
 
 ## Importing your data
 
