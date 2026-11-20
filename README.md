@@ -65,7 +65,7 @@ Single container, no compose needed:
 |---|---|---|
 | `PORT` | `3002` | Port the server listens on |
 | `DATA_DIR` | `/data` | Writable folder for the SQLite database and uploads — persist this |
-| `ALLOWED_HOSTS` | *(empty)* | Extra hostnames allowed in the `Host` header, comma-separated (see Security) |
+| `ALLOWED_HOSTS` | *(empty)* | Extra hostnames allowed in the `Host` header, comma-separated. A leading dot (`.example.com`) allows a whole domain; `*` disables the check (see Security) |
 | `PUID` / `PGID` | `1000` / `1000` | User/group the app runs as; `/data` is chowned to this at startup |
 | `MAX_UPLOAD_SIZE_MB` | `1024` | Max size of a single imported/restored file in MB (raise it if a LubeLogger photo or the database itself trips "File too large") |
 | `MAX_IMPORT_FILES` | `100000` | Max number of files in one LubeLogger import |
@@ -82,7 +82,7 @@ environment:
   ALLOWED_HOSTS: milemarker.example.com
 ```
 
-On Unraid, add it as a container variable. A minimal nginx site:
+On Unraid, add it as a container variable. Use a leading dot (`.example.com`) to allow that domain and every subdomain. `*` turns the check off entirely; only do that if your proxy requires its own login, because the check is what stops DNS-rebinding attacks from other websites. A minimal nginx site:
 
 ```nginx
 server {

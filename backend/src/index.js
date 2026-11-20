@@ -27,8 +27,13 @@ app.disable('x-powered-by')
 // random websites from driving this API. So no CORS (the frontend is always
 // same-origin), and a Host-header allowlist to block DNS-rebinding attacks.
 // Extra hostnames (e.g. milemarker.home.lan) go in ALLOWED_HOSTS, comma-separated.
+// A leading dot (".home.lan") allows that domain and all its subdomains; "*" turns
+// the check off (only do that behind a proxy that enforces its own login).
 const extraHosts = (process.env.ALLOWED_HOSTS || '')
   .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+const allowAnyHost = extraHosts.includes('*')
+const hostListed = (host) => extraHosts.some((h) =>
+  h.startsWith('.') ? host === h.slice(1) || host.endsWith(h) : host === h)
 app.use((req, res, next) => {
   const host = (req.headers.host || '').replace(/:\d+$/, '').toLowerCase()
   const bare = host.replace(/^\[|\]$/g, '') // [::1] → ::1
@@ -36,7 +41,7 @@ app.use((req, res, next) => {
     host === 'localhost' || host.endsWith('.localhost') ||
     host.endsWith('.local') ||
     net.isIP(bare) !== 0 ||
-    extraHosts.includes(host)
+    allowAnyHost || hostListed(host)
   if (!ok) return res.status(403).json({ error: `Host "${host}" not allowed — add it to ALLOWED_HOSTS` })
   next()
 })
