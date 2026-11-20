@@ -63,7 +63,9 @@ export function tireStats(db, vehicleId) {
     // Naming the set that was already on isn't a swap — it just splits one
     // stint in two. Usually a duplicate the user will want to remove.
     const redundant = i > 0 && changes[i - 1].set_id === c.set_id
-    return { ...c, miles: dist, is_current: !next, is_redundant: redundant }
+    // The change that ended this stint is when this set came off the car.
+    const removed = next ? { id: next.id, date: next.date, odometer: next.odometer } : null
+    return { ...c, miles: dist, is_current: !next, is_redundant: redundant, removed }
   })
 
   const mounted = changes.length ? changes[changes.length - 1].set_id : null
@@ -93,6 +95,9 @@ export function tireStats(db, vehicleId) {
       is_mounted: s.id === mounted,
       mounted_since: s.id === mounted ? own[own.length - 1] ?? null : null,
       last_change: own[own.length - 1] ?? null,
+      // When an unmounted set last came off — the changeover after its last
+      // stint, not the one that put it on.
+      unmounted_since: s.id === mounted ? null : own[own.length - 1]?.removed ?? null,
       wear_pct: s.expected_miles > 0 ? Math.min(1, total / s.expected_miles) : null,
       cost_per_1000: s.cost != null && total > 0 ? +((s.cost / total) * 1000).toFixed(2) : null,
       last_rotation: lastRotation && { date: lastRotation.date, odometer: lastRotation.odometer, miles_ago: sinceRotation },

@@ -1937,8 +1937,8 @@ function TireSetCard({ s, money, units, onOpen }) {
           {s.size && `${s.size} · `}
           {s.is_mounted && s.mounted_since
             ? `on since ${fmtDate(s.mounted_since.date)} at ${s.mounted_since.odometer.toLocaleString()}`
-            : s.last_change
-              ? `off since ${fmtDate(s.last_change.date)}`
+            : s.unmounted_since
+              ? `off since ${fmtDate(s.unmounted_since.date)}`
               : 'never mounted'}
         </span>
         {rot && <span className={`text-xs flex-shrink-0 tabular-nums ${rot.cls}`}>{rot.text}</span>}
@@ -2032,8 +2032,8 @@ function TireSetDetail({ vehicleId, set: s, odometer, money, distance, units, on
             <CardContent className="text-sm text-muted-foreground">
             {s.is_mounted && s.mounted_since
               ? <>On the car since {fmtDate(s.mounted_since.date)} at {s.mounted_since.odometer.toLocaleString()} — {(odometer - s.mounted_since.odometer).toLocaleString()} {units.distance} this stint.</>
-              : s.last_change
-                ? <>Last came off after {fmtDate(s.last_change.date)}, mounted at {s.last_change.odometer.toLocaleString()}.</>
+              : s.unmounted_since
+                ? <>Off the car since {fmtDate(s.unmounted_since.date)} at {s.unmounted_since.odometer.toLocaleString()}. Last put on {fmtDate(s.last_change.date)} at {s.last_change.odometer.toLocaleString()}.</>
                 : 'Never mounted.'}
             </CardContent>
           </Card>
