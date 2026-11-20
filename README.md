@@ -73,6 +73,37 @@ Single container, no compose needed:
 
 Units, currency, service types, and theme are configured in the app under **Settings**.
 
+## Behind a reverse proxy (nginx, etc.)
+
+MileMarker only accepts requests whose `Host` header is `localhost`, a `.local` name, or an IP address. When you serve it under your own domain, add that domain to `ALLOWED_HOSTS` or every request returns `Host "…" not allowed`:
+
+```yaml
+environment:
+  ALLOWED_HOSTS: milemarker.example.com
+```
+
+On Unraid, add it as a container variable. A minimal nginx site:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name milemarker.example.com;
+    # ssl_certificate / ssl_certificate_key ...
+
+    client_max_body_size 1024m;   # nginx defaults to 1 MB, too small for imports and backup restores
+    proxy_read_timeout   600s;    # large LubeLogger imports can take a while
+
+    location / {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+MileMarker uses no cookies, sessions, or CORS, so there are no secure-cookie or trusted-origin settings to change for HTTPS.
+
 ## Importing your data
 
 **From LubeLogger:** Settings → *Import from LubeLogger* → select your entire LubeLogger appdata folder (the one containing `data/cartracker.db`). Vehicles, fuel, service/repair/upgrade history, odometer readings, reminders, purchase/sale info, EV flags, and attached images/documents are imported. Vehicles that already exist (same year/make/model/plate) are skipped, so re-running is safe.
