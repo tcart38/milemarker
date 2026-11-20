@@ -19,5 +19,5 @@ export default function QuickFuel() {
     return () => { cancelled = true }
   }, [navigate])
 
-  return <div className="p-6 text-tertiary">Loading…</div>
+  return <div className="p-6 text-muted-foreground">Loading…</div>
 }

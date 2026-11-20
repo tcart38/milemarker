@@ -1,34 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useOutletContext, useNavigate } from 'react-router-dom'
-import { Check, Plus, X, Download, Upload, ArrowLeft, Pencil, Monitor, SunMedium, MoonStar } from 'lucide-react'
+import { useOutletContext } from 'react-router-dom'
+import { Check, Plus, X, Download, Upload, Pencil, Monitor, SunMedium, MoonStar } from 'lucide-react'
 import { updateSettings, getVehicles, getFuel, getRecords, getReminders, importLubeLogger, importCsv, createServiceType, updateServiceType, mergeServiceType, deleteServiceType, undoServiceTypeOp } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field'
+import { Item, ItemContent, ItemDescription, ItemActions } from '@/components/ui/item'
+import { Spinner } from '@/components/ui/spinner'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
 function SettingsCard({ title, description, children }) {
   return (
-    <section>
-      <h2 className="caption px-1 mb-2">{title}</h2>
-      <div className="card p-4 sm:p-5">
-        {description && <p className="text-sm text-secondary -mt-0.5 mb-3">{description}</p>}
-        <div className="space-y-4">{children}</div>
-      </div>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent><FieldGroup className="gap-4">{children}</FieldGroup></CardContent>
+    </Card>
   )
 }
 
 /* A settings row: label on the left, control on the right — the iOS layout,
    which stacks on narrow screens so long selects still have room. */
-function SettingRow({ label, hint, children }) {
+function SettingRow({ label, hint, htmlFor, children }) {
+  const Label = htmlFor ? FieldLabel : FieldTitle
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4">
-      <div className="min-w-0 sm:flex-1">
-        <p className="text-sm font-medium">{label}</p>
-        {hint && <p className="footnote mt-0.5">{hint}</p>}
-      </div>
-      <div className="sm:w-52 flex-shrink-0">{children}</div>
-    </div>
+    <Field orientation="responsive" className="sm:gap-4">
+      <FieldContent>
+        <Label htmlFor={htmlFor}>{label}</Label>
+        {hint && <FieldDescription className="text-xs">{hint}</FieldDescription>}
+      </FieldContent>
+      <div className="sm:w-52 shrink-0">{children}</div>
+    </Field>
   )
 }
 
@@ -99,36 +112,30 @@ function ServiceTypes() {
     setMessage({ text: 'Undone.' })
   })
 
-  const chip = (t, highlight) => (
-    <span key={t.id} className={`chip ${highlight ? 'chip-on' : 'chip-off'} !cursor-default gap-1 pr-1.5`}>
-      {t.name}
-      {t.record_count > 0 && <span className="text-tertiary tabular-nums">×{t.record_count}</span>}
-      {t.needs_review === 1 && (
-        <button
-          onClick={() => approve(t)} disabled={busy}
-          className="p-0.5 rounded-full hover:bg-accent/20"
-          title={`Keep ${t.name} as a type`} aria-label={`Keep ${t.name} as a type`}
-        >
-          <Check size={12} />
-        </button>
-      )}
-      <button
-        onClick={() => startEdit(t)} disabled={busy}
-        className="p-0.5 rounded-full hover:bg-accent/20"
-        title={`Rename or merge ${t.name}`} aria-label={`Rename or merge ${t.name}`}
+  const chipAction = (label, onClick, icon) => (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost" size="icon-xs" onClick={onClick} disabled={busy}
+            className="size-4 rounded-full [&_svg]:size-3" aria-label={label}
+          />
+        }
       >
-        <Pencil size={11} />
-      </button>
-      {t.record_count === 0 && t.reminder_count === 0 && (
-        <button
-          onClick={() => setToDelete(t)} disabled={busy}
-          className="p-0.5 rounded-full hover:bg-accent/20"
-          title={`Delete ${t.name}`} aria-label={`Delete ${t.name}`}
-        >
-          <X size={12} />
-        </button>
-      )}
-    </span>
+        {icon}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+
+  const chip = (t, highlight) => (
+    <Badge key={t.id} variant={highlight ? 'default' : 'secondary'} className="h-6 gap-1 pr-1.5 text-xs">
+      {t.name}
+      {t.record_count > 0 && <span className="opacity-70 tabular-nums">×{t.record_count}</span>}
+      {t.needs_review === 1 && chipAction(`Keep ${t.name} as a type`, () => approve(t), <Check />)}
+      {chipAction(`Rename or merge ${t.name}`, () => startEdit(t), <Pencil />)}
+      {t.record_count === 0 && t.reminder_count === 0 && chipAction(`Delete ${t.name}`, () => setToDelete(t), <X />)}
+    </Badge>
   )
 
   return (
@@ -137,64 +144,66 @@ function ServiceTypes() {
       description="One list, shared by service records and reminders. Typing a new name in those forms creates a type here; counts show how many records use each."
     >
       <div className="flex gap-2">
-        <input
+        <Input
           value={draft}
           onChange={(e) => { setDraft(e.target.value); setError(null) }}
           onKeyDown={(e) => { if (e.key === 'Enter') add(draft) }}
-          className="input flex-1"
+          className="flex-1"
           placeholder="Add a service type…"
           aria-label="New service type"
         />
-        <button onClick={() => add(draft)} disabled={busy || !draft.trim()} className="btn-primary disabled:opacity-50"><Plus size={14} /> Add</button>
+        <Button onClick={() => add(draft)} disabled={busy || !draft.trim()}><Plus /> Add</Button>
       </div>
-      {error && <p className="text-xs text-bad !mt-2">{error}</p>}
+      {error && <p className="text-xs text-destructive !mt-2">{error}</p>}
       {message && (
-        <p className="text-xs text-ok !mt-2 flex items-center gap-2">
+        <p className="text-xs text-success !mt-2 flex items-center gap-2">
           <Check size={12} className="shrink-0" /> {message.text}
           {message.undoId && (
-            <button onClick={undo} disabled={busy} className="underline hover:no-underline text-accent shrink-0">
+            <Button variant="link" size="xs" onClick={undo} disabled={busy} className="h-auto p-0 text-xs shrink-0">
               Undo
-            </button>
+            </Button>
           )}
         </p>
       )}
 
       {editing && (
-        <div className="rounded-lg border border-accent/40 bg-accent/5 p-3 space-y-2">
-          <p className="text-sm">
+        <Item variant="outline" size="sm" className="border-primary/40 bg-primary/5">
+          <ItemContent>
+          <ItemDescription className="line-clamp-none text-sm text-foreground">
             Rename <strong>{editing.name}</strong>
             {editing.record_count > 0 && <> — used by {editing.record_count} record{editing.record_count === 1 ? '' : 's'}</>}.
             Records and reminders follow automatically. Type an existing type's name to merge into it.
-          </p>
-          <div className="flex gap-2">
-            <input
+          </ItemDescription>
+          <div className="flex gap-2 mt-2">
+            <Input
               list="service-type-names" value={renameTo} autoFocus
               onChange={(e) => setRenameTo(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') setEditing(null) }}
-              className="input flex-1" aria-label="New name"
+              className="flex-1" aria-label="New name"
             />
             <datalist id="service-type-names">
               {serviceTypes.filter((t) => t.id !== editing.id).map((t) => <option key={t.id} value={t.name} />)}
             </datalist>
-            <button onClick={doRename} disabled={busy || !renameTo.trim() || renameTo.trim() === editing.name} className="btn-primary disabled:opacity-50">
-              {busy ? 'Saving…' : 'Save'}
-            </button>
-            <button onClick={() => setEditing(null)} className="btn-ghost">Cancel</button>
+            <Button onClick={doRename} disabled={busy || !renameTo.trim() || renameTo.trim() === editing.name}>
+              {busy ? <><Spinner /> Saving…</> : 'Save'}
+            </Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
           </div>
-          <label className="flex items-center gap-2 text-xs text-secondary">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-accent w-3.5 h-3.5" />
+          <Label className="text-xs font-normal text-muted-foreground">
+            <Checkbox checked={remember} onCheckedChange={(c) => setRemember(c)} />
             Map future imports of “{editing.name}” to the new name
-          </label>
-        </div>
+          </Label>
+          </ItemContent>
+        </Item>
       )}
 
       {needsReview.length > 0 && (
         <div>
-          <p className="label">New from imports — review these</p>
+          <p className="text-sm font-medium mb-1.5">New from imports — review these</p>
           <div className="flex flex-wrap gap-1.5">
             {needsReview.map((t) => chip(t, true))}
           </div>
-          <p className="text-xs text-tertiary mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             Keep one as its own type (✓), or rename it (✏️) into a type you already use — that re-tags its records,
             and the old spelling is remembered so future imports map correctly on their own.
           </p>
@@ -202,11 +211,11 @@ function ServiceTypes() {
       )}
 
       <div>
-        <p className="label">All types</p>
+        <p className="text-sm font-medium mb-1.5">All types</p>
         <div className="flex flex-wrap gap-1.5">
           {reviewed.map((t) => chip(t, false))}
         </div>
-        <p className="text-xs text-tertiary mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           Unused types can be deleted (✕); types in use can be renamed or merged instead, which updates their records.
         </p>
       </div>
@@ -276,36 +285,38 @@ function DataCard() {
   return (
     <SettingsCard title="Data" description="Back up everything — database and all attachments — as one zip. Restore replaces the current data with a backup.">
       <div className="flex flex-wrap gap-2">
-        <a href="/api/backup/download" className="btn-primary">
-          <Download size={14} /> Download backup
-        </a>
-        <button onClick={exportAll} disabled={exporting} className="btn-ghost">
-          {exporting ? 'Exporting…' : 'Export JSON'}
-        </button>
+        <Button nativeButton={false} render={<a href="/api/backup/download" />}>
+          <Download /> Download backup
+        </Button>
+        <Button variant="ghost" onClick={exportAll} disabled={exporting}>
+          {exporting ? <><Spinner /> Exporting…</> : 'Export JSON'}
+        </Button>
         <div className="flex-1" />
         <input ref={restoreRef} type="file" accept=".zip,application/zip" hidden
           onChange={(e) => setRestoreFile(e.target.files[0] || null)} />
-        <button onClick={() => restoreRef.current?.click()} disabled={restoring} className="btn-ghost text-warn hover:text-warn">
-          <Upload size={14} /> Restore backup…
-        </button>
+        <Button variant="ghost" onClick={() => restoreRef.current?.click()} disabled={restoring} className="text-warning hover:text-warning">
+          <Upload /> Restore backup…
+        </Button>
       </div>
 
       {restoreFile && (
-        <div className="rounded-lg border border-warn/40 bg-warn/[0.06] p-3 space-y-2">
-          <p className="text-sm text-warn">
+        <Item variant="outline" size="sm" className="border-warning/40 bg-warning/10">
+          <ItemContent>
+          <ItemDescription className="line-clamp-none text-sm text-warning">
             Restore <strong>{restoreFile.name}</strong>? This <strong>replaces all current data</strong> — vehicles, records, and attachments — with the backup's contents.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={doRestore} disabled={restoring} className="btn-danger disabled:opacity-50">
-              {restoring ? 'Restoring…' : 'Yes, replace everything'}
-            </button>
-            <button onClick={() => { setRestoreFile(null); if (restoreRef.current) restoreRef.current.value = '' }} className="btn-ghost">Cancel</button>
-          </div>
-        </div>
+          </ItemDescription>
+          </ItemContent>
+          <ItemActions className="w-full">
+            <Button variant="destructive" onClick={doRestore} disabled={restoring}>
+              {restoring ? <><Spinner /> Restoring…</> : 'Yes, replace everything'}
+            </Button>
+            <Button variant="ghost" onClick={() => { setRestoreFile(null); if (restoreRef.current) restoreRef.current.value = '' }}>Cancel</Button>
+          </ItemActions>
+        </Item>
       )}
-      {restored && <p className="text-sm text-ok flex items-center gap-1.5"><Check size={14} /> Restored — reloading…</p>}
-      {error && <p className="text-xs text-bad">{error}</p>}
-      <p className="text-xs text-tertiary">JSON export is readable everywhere but doesn't include attachments; the zip backup includes everything and can be restored here.</p>
+      {restored && <p className="text-sm text-success flex items-center gap-1.5"><Check size={14} /> Restored — reloading…</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">JSON export is readable everywhere but doesn't include attachments; the zip backup includes everything and can be restored here.</p>
     </SettingsCard>
   )
 }
@@ -358,29 +369,30 @@ function CsvImportCard() {
       description="One row per record. Tip: photograph your receipts, ask Claude to fill out the CSV using the format below, then import it here."
     >
       <div className="flex flex-wrap items-end gap-2">
-        <div className="flex-1 min-w-[160px]">
-          <label className="label">Into vehicle</label>
-          <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} className="input">
-            {vehicles.map((v) => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
-          </select>
-        </div>
+        <Field className="flex-1 min-w-[160px] gap-1.5">
+          <FieldLabel htmlFor="csv-vehicle">Into vehicle</FieldLabel>
+          <NativeSelect id="csv-vehicle" className="w-full" value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
+            {vehicles.map((v) => <NativeSelectOption key={v.id} value={v.id}>{vehicleLabel(v)}</NativeSelectOption>)}
+          </NativeSelect>
+        </Field>
         <input ref={inputRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => onFile(e.target.files[0])} />
-        <button onClick={() => inputRef.current?.click()} disabled={busy || !vehicleId} className="btn-primary disabled:opacity-50">
-          <Upload size={14} /> {busy ? 'Importing…' : 'Choose CSV'}
-        </button>
+        <Button onClick={() => inputRef.current?.click()} disabled={busy || !vehicleId}>
+          {busy ? <Spinner /> : <Upload />} {busy ? 'Importing…' : 'Choose CSV'}
+        </Button>
       </div>
 
       {result && (
-        <p className="text-sm text-ok flex items-center gap-1.5">
+        <p className="text-sm text-success flex items-center gap-1.5">
           <Check size={14} />
           {counts.length === 0 ? 'Nothing new to import.' : `Imported ${counts.map(([l, n]) => `${n} ${l}${n === 1 ? '' : 's'}`).join(', ')}.`}
-          {result.skipped_duplicates > 0 && <span className="text-tertiary"> {result.skipped_duplicates} duplicate{result.skipped_duplicates === 1 ? '' : 's'} skipped.</span>}
+          {result.skipped_duplicates > 0 && <span className="text-muted-foreground"> {result.skipped_duplicates} duplicate{result.skipped_duplicates === 1 ? '' : 's'} skipped.</span>}
         </p>
       )}
-      {error && <p className="text-xs text-bad whitespace-pre-wrap">{error}</p>}
+      {error && <p className="text-xs text-destructive whitespace-pre-wrap">{error}</p>}
 
-      <div className="rounded-lg bg-inset border border-hairline/50 p-3 text-xs text-secondary space-y-1.5">
-        <p className="font-medium text-primary">Reading receipts with Claude</p>
+      <Item variant="muted" size="sm" className="text-xs text-muted-foreground">
+        <ItemContent className="gap-1.5">
+        <p className="font-medium text-foreground">Reading receipts with Claude</p>
         <p>
           There's no AI built into MileMarker — instead, a ready-made skill teaches Claude to turn photos of your
           car receipts into this CSV. Install it, then give Claude your receipt photos in any session and ask it to
@@ -388,15 +400,16 @@ function CsvImportCard() {
           back a CSV to import here.
         </p>
         <p>
-          <a href="/milemarker-receipts-skill.md" download="SKILL.md" className="text-accent hover:underline">
+          <Button variant="link" nativeButton={false} render={<a href="/milemarker-receipts-skill.md" download="SKILL.md" />} className="h-auto p-0 text-xs">
             Download the skill
-          </a>
+          </Button>
           {' '}and save it as <code>~/.claude/skills/milemarker-receipts/SKILL.md</code> (Claude Code), or add it to a
           Claude project's knowledge.
         </p>
-      </div>
+        </ItemContent>
+      </Item>
 
-      <details className="text-xs text-secondary">
+      <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer select-none">CSV format</summary>
         <div className="mt-2 space-y-2">
           <p>
@@ -406,14 +419,13 @@ function CsvImportCard() {
             Fuel rows need odometer, quantity, and cost. An optional <code>vehicle</code> column (nickname, plate, or "year make model") overrides the vehicle picked above.
             Re-importing the same rows won't create duplicates.
           </p>
-          <pre className="p-2 rounded-lg bg-inset overflow-x-auto">{CSV_TEMPLATE}</pre>
-          <a
-            href={`data:text/csv;charset=utf-8,${encodeURIComponent(CSV_TEMPLATE)}`}
-            download="milemarker-template.csv"
-            className="text-accent hover:underline"
+          <pre className="p-2 rounded-lg bg-muted overflow-x-auto">{CSV_TEMPLATE}</pre>
+          <Button
+            variant="link" nativeButton={false} className="h-auto p-0 text-xs"
+            render={<a href={`data:text/csv;charset=utf-8,${encodeURIComponent(CSV_TEMPLATE)}`} download="milemarker-template.csv" />}
           >
             Download template
-          </a>
+          </Button>
         </div>
       </details>
     </SettingsCard>
@@ -453,34 +465,33 @@ function ImportCard() {
         ref={inputRef} type="file" webkitdirectory="" multiple hidden
         onChange={(e) => onFiles(e.target.files)}
       />
-      <button onClick={() => inputRef.current?.click()} disabled={busy} className="btn-primary disabled:opacity-50">
-        <Upload size={14} /> {busy ? 'Importing…' : 'Choose LubeLogger folder'}
-      </button>
+      <Button onClick={() => inputRef.current?.click()} disabled={busy}>
+        {busy ? <Spinner /> : <Upload />} {busy ? 'Importing…' : 'Choose LubeLogger folder'}
+      </Button>
 
       {result && (
         <div className="text-sm space-y-1">
-          <p className="text-ok flex items-center gap-1.5">
+          <p className="text-success flex items-center gap-1.5">
             <Check size={14} />
             {counts.length === 0
               ? 'Nothing new to import.'
               : `Imported ${counts.map(([label, n]) => `${n} ${label}${n === 1 ? '' : 's'}`).join(', ')}.`}
           </p>
           {result.skipped_vehicles?.length > 0 && (
-            <p className="text-xs text-tertiary">Already here (skipped): {result.skipped_vehicles.join('; ')}</p>
+            <p className="text-xs text-muted-foreground">Already here (skipped): {result.skipped_vehicles.join('; ')}</p>
           )}
           {result.missing_files?.length > 0 && (
-            <p className="text-xs text-warn">Files referenced but not found in the folder: {result.missing_files.join(', ')}</p>
+            <p className="text-xs text-warning">Files referenced but not found in the folder: {result.missing_files.join(', ')}</p>
           )}
         </div>
       )}
-      {error && <p className="text-xs text-bad">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </SettingsCard>
   )
 }
 
 export default function Settings() {
   const { setCrumb } = useOutletContext()
-  const navigate = useNavigate()
   const { settings, setSettings, refresh } = useSettings()
   const { theme, resolved, setTheme } = useTheme()
   const [saved, setSaved] = useState(false)
@@ -495,51 +506,42 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 1500)
   }
 
-  const Field = ({ label, hint, k, options }) => (
-    <SettingRow label={label} hint={hint}>
-      <select value={settings[k]} onChange={(e) => save({ [k]: e.target.value })} className="input">
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+  const SelectField = ({ label, hint, k, options }) => (
+    <SettingRow label={label} hint={hint} htmlFor={`setting-${k}`}>
+      <NativeSelect id={`setting-${k}`} className="w-full" value={settings[k]} onChange={(e) => save({ [k]: e.target.value })}>
+        {options.map((o) => <NativeSelectOption key={o.value} value={o.value}>{o.label}</NativeSelectOption>)}
+      </NativeSelect>
     </SettingRow>
   )
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-2 mb-1">
-        <button
-          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/garage'))}
-          className="btn-icon -ml-2" title="Back" aria-label="Back"
-        >
-          <ArrowLeft size={17} />
-        </button>
-        <h1 className="title-lg">Settings</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Settings</h1>
         {saved && (
-          <span className="badge badge-service animate-fade"><Check size={12} /> Saved</span>
+          <Badge className="bg-success/15 text-success animate-in fade-in-0"><Check /> Saved</Badge>
         )}
       </div>
 
       <SettingsCard title="Units & display">
-        <Field label="Distance unit" k="distance_unit" options={[{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }]} />
-        <Field label="Volume unit" k="volume_unit" options={[{ value: 'gal', label: 'Gallons' }, { value: 'L', label: 'Litres' }]} />
-        <Field label="Currency symbol" k="currency_symbol" options={[{ value: '$', label: '$ (USD/CAD/AUD)' }, { value: '€', label: '€ (EUR)' }, { value: '£', label: '£ (GBP)' }]} />
+        <SelectField label="Distance unit" k="distance_unit" options={[{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }]} />
+        <SelectField label="Volume unit" k="volume_unit" options={[{ value: 'gal', label: 'Gallons' }, { value: 'L', label: 'Litres' }]} />
+        <SelectField label="Currency symbol" k="currency_symbol" options={[{ value: '$', label: '$ (USD/CAD/AUD)' }, { value: '€', label: '€ (EUR)' }, { value: '£', label: '£ (GBP)' }]} />
         <SettingRow label="Appearance" hint={theme === 'system' ? `Following your device — currently ${resolved}` : null}>
-          <div className="segmented w-full">
-            {[
-              { v: 'system', label: 'System', icon: Monitor },
-              { v: 'light', label: 'Light', icon: SunMedium },
-              { v: 'dark', label: 'Dark', icon: MoonStar },
-            ].map((o) => (
-              <button
-                key={o.v}
-                onClick={() => setTheme(o.v)}
-                aria-pressed={theme === o.v}
-                className={`segment flex-1 px-2 ${theme === o.v ? 'segment-on' : ''}`}
-              >
-                <o.icon size={13} className="flex-shrink-0" />
-                <span className="hidden xs:inline sm:inline">{o.label}</span>
-              </button>
-            ))}
-          </div>
+          <Tabs value={theme} onValueChange={setTheme} className="w-full">
+            <TabsList className="w-full">
+              {[
+                { v: 'system', label: 'System', icon: Monitor },
+                { v: 'light', label: 'Light', icon: SunMedium },
+                { v: 'dark', label: 'Dark', icon: MoonStar },
+              ].map((o) => (
+                <TabsTrigger key={o.v} value={o.v} className="flex-1 px-2" aria-label={o.label}>
+                  <o.icon size={13} className="shrink-0" />
+                  <span className="hidden sm:inline">{o.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </SettingRow>
       </SettingsCard>
 
@@ -548,7 +550,7 @@ export default function Settings() {
       <ImportCard />
       <DataCard />
 
-      <p className="footnote text-center pt-2 pb-4">MileMarker v{settings.version || '—'}</p>
+      <p className="text-xs text-muted-foreground text-center pt-2 pb-4">MileMarker v{settings.version || '—'}</p>
     </div>
   )
 }
