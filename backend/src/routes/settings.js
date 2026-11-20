@@ -3,6 +3,7 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { getDb } from '../db/index.js'
+import { parseHostList } from '../hosts.js'
 
 const router = Router()
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +24,9 @@ router.put('/', (req, res) => {
   const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
   for (const k of allowed) {
     if (req.body[k] !== undefined) upsert.run(k, String(req.body[k]))
+  }
+  if (req.body.allowed_hosts !== undefined) {
+    upsert.run('allowed_hosts', parseHostList(req.body.allowed_hosts).join(', '))
   }
   const rows = db.prepare('SELECT key, value FROM settings').all()
   res.json({ ...Object.fromEntries(rows.map((r) => [r.key, r.value])), version })

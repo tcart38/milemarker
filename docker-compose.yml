@@ -14,6 +14,8 @@ services:
       DATA_DIR: /data
       MAX_UPLOAD_SIZE_MB: 1024
       MAX_IMPORT_FILES: 100000
+      # Hostnames you reach MileMarker by through a reverse proxy, comma-separated
+      #ALLOWED_HOSTS: milemarker.example.com
     restart: unless-stopped
 
 volumes:
