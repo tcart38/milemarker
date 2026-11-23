@@ -15,6 +15,7 @@ import {
   uploadAttachment,
 } from '../api/client.js'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { formatDate, formatDayMonth } from '../lib/dates.js'
 import Modal from '../components/Modal.jsx'
 import Combobox from '../components/Combobox.jsx'
 import ItemsInput from '../components/ItemsInput.jsx'
@@ -75,7 +76,7 @@ const FAB_LABEL = {
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
-const fmtDate = (d) => (d ? new Date(d + 'T00:00:00').toLocaleDateString() : '—')
+const fmtDate = (d) => formatDate(d)
 const byRecency = (a, b) =>
   (b.date || '').localeCompare(a.date || '') || (b.odometer ?? -1) - (a.odometer ?? -1) || b.id - a.id
 
@@ -479,7 +480,15 @@ const fmtChartX = (x) => {
     const s = d.toLocaleDateString(undefined, { month: 'short' })
     return d.getMonth() === 0 ? `${s} ${String(d.getFullYear()).slice(2)}` : s
   }
-  return new Date(x + 'T00:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })
+  return formatDayMonth(x)
+}
+
+// Tooltips and the table view have room for the full date.
+const fmtChartLabel = (x) => {
+  if (x.length === 7) {
+    return new Date(x + '-02T00:00:00').toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+  }
+  return formatDate(x)
 }
 
 // Fixed color per metric (validated categorical palette, light + dark surfaces).
@@ -661,11 +670,11 @@ function TrendCard({ fuel, odo, monthlySpend, money, units }) {
                 </EmptyNote>
               ) : showTable ? (
                 <ChartTable data={s} xHeader={s[0].x.length === 7 ? 'Month' : 'Date'} yHeader={fmt.header}
-                  formatValue={fmt.value} formatX={fmtChartX} />
+                  formatValue={fmt.value} formatX={fmtChartLabel} />
               ) : (
                 <TrendChart
                   data={s} type={m.type} height={single ? 208 : 132} color={METRIC_COLORS[m.key]}
-                  formatValue={fmt.value} formatTick={fmt.tick} formatX={fmtChartX}
+                  formatValue={fmt.value} formatTick={fmt.tick} formatX={fmtChartX} formatLabel={fmtChartLabel}
                   ariaLabel={`${m.label} over time`}
                 />
               )}

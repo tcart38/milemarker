@@ -3,6 +3,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis,
 } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { formatDate } from '../lib/dates.js'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -14,7 +15,7 @@ const colorOf = (color) => color?.var ?? 'var(--primary)'
 const identity = (v) => String(v)
 
 export default function TrendChart({
-  data, type = 'line', formatValue = identity, formatTick = formatValue, formatX = identity,
+  data, type = 'line', formatValue = identity, formatTick = formatValue, formatX = identity, formatLabel = formatX,
   ariaLabel, height = 208, color,
 }) {
   const stroke = colorOf(color)
@@ -44,7 +45,7 @@ export default function TrendChart({
       content={(
         <ChartTooltipContent
           hideLabel={false}
-          labelFormatter={(_, payload) => formatX(payload?.[0]?.payload?.x)}
+          labelFormatter={(_, payload) => formatLabel(payload?.[0]?.payload?.x)}
           formatter={(value, _name, item) => (
             <div className="flex w-full items-center gap-2">
               <span className="size-2 shrink-0 rounded-full" style={{ background: item.color ?? stroke }} />
@@ -128,9 +129,7 @@ const fmtAxisDate = (t) => {
   return d.getMonth() === 0 ? `${m} ${String(d.getFullYear()).slice(2)}` : m
 }
 
-const fmtTooltipDate = (t) => new Date(t).toLocaleDateString(undefined, {
-  year: 'numeric', month: 'short', day: 'numeric',
-})
+const fmtTooltipDate = (t) => formatDate(new Date(t))
 
 export function OverlayChart({ series, height = 240, ariaLabel }) {
   const model = useMemo(() => {

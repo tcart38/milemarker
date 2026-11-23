@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { getSettings, getServiceTypes } from '../api/client.js'
+import { formatDate, setDateFormat, DEFAULT_DATE_FORMAT } from '../lib/dates.js'
 
 const SettingsContext = createContext(null)
 
 const DEFAULTS = {
   distance_unit: 'mi', volume_unit: 'gal', currency_symbol: '$',
-  date_format: 'MM/DD/YYYY', version: '',
+  date_format: DEFAULT_DATE_FORMAT, version: '',
 }
 
 export function SettingsProvider({ children }) {
@@ -36,6 +37,11 @@ export function SettingsProvider({ children }) {
     return `${Number(n).toLocaleString()} ${settings.distance_unit}`
   }, [settings.distance_unit])
 
+  // Keep the module-level date format in step before children render, so the
+  // plain formatDate() helpers used across the app pick up changes at once.
+  setDateFormat(settings.date_format)
+  const date = useCallback((d) => formatDate(d, settings.date_format), [settings.date_format])
+
   // Unit labels derived from settings — nothing should hardcode "mi"/"gal"/"mpg".
   const units = useMemo(() => {
     const d = settings.distance_unit, v = settings.volume_unit
@@ -47,7 +53,7 @@ export function SettingsProvider({ children }) {
 
   return (
     <SettingsContext.Provider value={{
-      settings, setSettings, refresh, money, distance, units,
+      settings, setSettings, refresh, money, distance, date, units,
       serviceTypes, serviceOptions, refreshServiceTypes,
     }}>
       {children}
