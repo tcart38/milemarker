@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Check, Plus, X, Download, Upload, Pencil, Monitor, SunMedium, MoonStar, LogOut } from 'lucide-react'
 import { updateSettings, getVehicles, getFuel, getRecords, getReminders, importLubeLogger, importCsv, createServiceType, updateServiceType, mergeServiceType, deleteServiceType, undoServiceTypeOp } from '../api/client.js'
+import { DATE_FORMATS, formatDate } from '../lib/dates.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -322,6 +323,9 @@ function DataCard() {
   )
 }
 
+// A day above 12 so every format looks different in the picker.
+const DATE_EXAMPLE = '2026-01-31'
+
 const CSV_TEMPLATE = `type,date,odometer,description,quantity,cost,is_fill_to_full,missed_fuelup,notes
 fuel,2026-07-01,52100,,12.42,44.87,true,false,
 service,2026-07-03,52210,Oil change; Tire rotation,,89.50,,,Jiffy Lube
@@ -334,6 +338,7 @@ function vehicleLabel(v) {
 }
 
 function CsvImportCard() {
+  const { settings } = useSettings()
   const inputRef = useRef(null)
   const [vehicles, setVehicles] = useState([])
   const [vehicleId, setVehicleId] = useState('')
@@ -414,7 +419,7 @@ function CsvImportCard() {
         <summary className="cursor-pointer select-none">CSV format</summary>
         <div className="mt-2 space-y-2">
           <p>
-            Columns: <code>type</code> (fuel / service / repair / upgrade / odometer), <code>date</code> (YYYY-MM-DD),{' '}
+            Columns: <code>type</code> (fuel / service / repair / upgrade / odometer), <code>date</code> (YYYY-MM-DD, or {settings.date_format}, per your date format),{' '}
             <code>odometer</code>, <code>description</code> (multiple items separated by <code>;</code>),{' '}
             <code>quantity</code> (fuel volume), <code>cost</code>, <code>is_fill_to_full</code>, <code>missed_fuelup</code>, <code>notes</code>.
             Fuel rows need odometer, quantity, and cost. An optional <code>vehicle</code> column (nickname, plate, or "year make model") overrides the vehicle picked above.
@@ -670,6 +675,9 @@ export default function Settings() {
         <SelectField label="Distance unit" k="distance_unit" options={[{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }]} />
         <SelectField label="Volume unit" k="volume_unit" options={[{ value: 'gal', label: 'Gallons' }, { value: 'L', label: 'Litres' }]} />
         <SelectField label="Currency symbol" k="currency_symbol" options={[{ value: '$', label: '$ (USD/CAD/AUD)' }, { value: '€', label: '€ (EUR)' }, { value: '£', label: '£ (GBP)' }]} />
+        <SelectField label="Date format" k="date_format"
+          hint="Used wherever dates are shown and in CSV imports. Date pickers follow your device."
+          options={DATE_FORMATS.map((f) => ({ value: f, label: `${f} (${formatDate(DATE_EXAMPLE, f)})` }))} />
         <SettingRow label="Appearance" hint={theme === 'system' ? `Following your device — currently ${resolved}` : null}>
           <Tabs value={theme} onValueChange={setTheme} className="w-full">
             <TabsList className="w-full">

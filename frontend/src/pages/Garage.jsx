@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty'
 import { vehicleTitle } from '../vehicles.js'
+import { formatDate } from '../lib/dates.js'
 
 function VehicleAvatar({ v }) {
   return (
@@ -191,7 +192,7 @@ export default function Garage() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold truncate">{vehicleTitle(v)}</p>
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          Sold{v.sold_date ? ` ${new Date(v.sold_date + 'T00:00:00').toLocaleDateString()}` : ''}
+                          Sold{v.sold_date ? ` ${formatDate(v.sold_date)}` : ''}
                         </p>
                       </div>
                       <ChevronRight size={16} className="text-muted-foreground shrink-0 mt-0.5" />

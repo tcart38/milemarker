@@ -254,12 +254,21 @@ function parseCsv(text) {
 
 const CSV_TYPES = new Set(['fuel', 'service', 'repair', 'upgrade', 'odometer'])
 
-// Accept YYYY-MM-DD or M/D/YYYY; return YYYY-MM-DD or null.
-function csvDate(s) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
-  return null
+// Accept YYYY-MM-DD, YYYY/MM/DD, or a slashed day-month-year date read in the
+// user's date_format (D/M/YYYY for 'DD/MM/YYYY', otherwise M/D/YYYY).
+// Return YYYY-MM-DD, or null if it isn't a real calendar date.
+export function csvDate(s, dateFormat = 'MM/DD/YYYY') {
+  s = String(s).trim()
+  let y, m, d
+  let x = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/)
+  if (x) [, y, m, d] = x
+  else if ((x = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) {
+    if (dateFormat === 'DD/MM/YYYY') [, d, m, y] = x
+    else [, m, d, y] = x
+  } else return null
+  const iso = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  const t = new Date(`${iso}T00:00:00Z`)
+  return !isNaN(t) && t.toISOString().slice(0, 10) === iso ? iso : null
 }
 
 const truthy = (s, dflt) => (s === '' || s == null ? dflt : /^(1|true|yes|y)$/i.test(s))
@@ -278,6 +287,7 @@ router.post('/csv', upload.single('file'), (req, res) => {
     if (v.license_plate) byKey.set(v.license_plate.toLowerCase(), v.id)
     byKey.set([v.year, v.make, v.model].filter(Boolean).join(' ').toLowerCase(), v.id)
   }
+  const dateFormat = db.prepare("SELECT value FROM settings WHERE key = 'date_format'").get()?.value || 'MM/DD/YYYY'
   const defaultVehicle = req.body.vehicle_id ? Number(req.body.vehicle_id) : null
   if (defaultVehicle && !vehicles.some((v) => v.id === defaultVehicle)) {
     return res.status(400).json({ error: 'Unknown vehicle_id' })
@@ -305,8 +315,8 @@ router.post('/csv', upload.single('file'), (req, res) => {
     }
     if (!vehicleId) return fail('no vehicle: pick one in the import form or add a "vehicle" column')
 
-    const date = csvDate(r.date || '')
-    if (!date) return fail(`date must be YYYY-MM-DD (got "${r.date}")`)
+    const date = csvDate(r.date || '', dateFormat)
+    if (!date) return fail(`date must be YYYY-MM-DD or ${dateFormat} (got "${r.date}")`)
 
     const odometer = r.odometer === '' || r.odometer == null ? null : parseInt(String(r.odometer).replace(/[,\s]/g, ''), 10)
     if (r.odometer && Number.isNaN(odometer)) return fail(`odometer isn't a number ("${r.odometer}")`)
